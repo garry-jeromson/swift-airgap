@@ -86,8 +86,12 @@ public enum Airgap {
     }
 
     /// Returns `true` if the given host is in the `allowedHosts` set.
+    /// Matching is case-insensitive per RFC 3986.
     static func isHostAllowed(_ host: String) -> Bool {
-        lock.withLock { _allowedHosts.contains(host) }
+        let lowercased = host.lowercased()
+        return lock.withLock {
+            _allowedHosts.contains { $0.lowercased() == lowercased }
+        }
     }
 
     /// Resets the collected violations list.

@@ -502,6 +502,247 @@ final class AirgapTests: XCTestCase {
         XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)))
     }
 
+    // MARK: - Case-insensitive host matching
+
+    func testAllowedHostsCaseInsensitive() {
+        Airgap.allowedHosts = ["Example.COM"]
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "Host matching should be case-insensitive")
+    }
+
+    func testAllowedHostsMixedCaseInURL() {
+        Airgap.allowedHosts = ["localhost"]
+        Airgap.activate()
+
+        let url = URL(string: "https://LocalHost/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "URL host should be matched case-insensitively")
+    }
+
+    // MARK: - Non-GET HTTP methods
+
+    func testPOSTMethodIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "POST completes")
+        var request = URLRequest(url: URL(string: "https://example.com/api/post")!)
+        request.httpMethod = "POST"
+        request.httpBody = #"{"key":"value"}"#.data(using: .utf8)
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("POST"))
+    }
+
+    func testPUTMethodIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "PUT completes")
+        var request = URLRequest(url: URL(string: "https://example.com/api/put")!)
+        request.httpMethod = "PUT"
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("PUT"))
+    }
+
+    func testDELETEMethodIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "DELETE completes")
+        var request = URLRequest(url: URL(string: "https://example.com/api/delete")!)
+        request.httpMethod = "DELETE"
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("DELETE"))
+    }
+
+    func testPATCHMethodIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "PATCH completes")
+        var request = URLRequest(url: URL(string: "https://example.com/api/patch")!)
+        request.httpMethod = "PATCH"
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("PATCH"))
+    }
+
+    func testHEADMethodIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "HEAD completes")
+        var request = URLRequest(url: URL(string: "https://example.com/api/head")!)
+        request.httpMethod = "HEAD"
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("HEAD"))
+    }
+
+    // MARK: - Upload and download tasks
+
+    func testUploadTaskIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Upload completes")
+        var request = URLRequest(url: URL(string: "https://example.com/upload")!)
+        request.httpMethod = "POST"
+        let data = "file content".data(using: .utf8)!
+
+        URLSession.shared.uploadTask(with: request, from: data) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+    }
+
+    func testDownloadTaskIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Download completes")
+        let url = URL(string: "https://example.com/file.zip")!
+
+        URLSession.shared.downloadTask(with: url) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+    }
+
+    // MARK: - Concurrent requests
+
+    func testConcurrentBlockedRequests() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "All requests complete")
+        expectation.expectedFulfillmentCount = 5
+
+        for i in 0..<5 {
+            let url = URL(string: "https://example.com/api/concurrent/\(i)")!
+            URLSession.shared.dataTask(with: url) { _, _, error in
+                XCTAssertNotNil(error)
+                expectation.fulfill()
+            }.resume()
+        }
+
+        wait(for: [expectation], timeout: 10.0)
+        XCTAssertEqual(capture.count, 5)
+    }
+
+    // MARK: - URL edge cases
+
+    func testURLWithQueryStringIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api?param=value&other=test")!
+
+        URLSession.shared.dataTask(with: url) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+    }
+
+    func testURLWithFragmentIsBlocked() {
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api#section")!
+        let request = URLRequest(url: url)
+
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: request))
+    }
+
+    func testURLWithPortIsBlocked() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com:8443/api")!
+
+        URLSession.shared.dataTask(with: url) { _, _, error in
+            XCTAssertNotNil(error)
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+    }
+
+    func testURLWithBasicAuthIsBlocked() {
+        Airgap.activate()
+
+        let url = URL(string: "https://user:password@example.com/api")!
+        let request = URLRequest(url: url)
+
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: request))
+    }
+
+    // MARK: - Report edge cases
+
+    func testWriteReportHandlesUnwritablePath() {
+        Airgap.reportPath = "/nonexistent/deep/path/airgap-report.txt"
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/unwritable")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        // Should not crash
+        Airgap.writeReport()
+    }
+
+    func testWriteReportWithNoViolationsDoesNotCreateFile() {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ng-empty-\(UUID().uuidString).txt").path
+        Airgap.reportPath = tempPath
+
+        Airgap.writeReport()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tempPath))
+    }
+
     // MARK: - Violation summary
 
     func testViolationSummaryReturnsNilWhenNoViolations() {
