@@ -209,16 +209,23 @@ public enum Airgap {
             _violations.append(violation)
         }
 
+        // XCTest APIs (XCTFail, XCTExpectFailure) must be called on the main thread.
+        // startLoading() runs on com.apple.CFNetwork.CustomProtocols, so we dispatch when needed.
+        let handler = violationHandler
+
         switch mode {
         case .fail:
-            violationHandler(message)
+            if Thread.isMainThread {
+                handler(message)
+            } else {
+                DispatchQueue.main.async { handler(message) }
+            }
         case .warn:
             // In warn mode, report the violation without failing the test.
             // XCTExpectFailure is only safe in an XCTest context — calling it from Swift Testing
             // crashes because there is no active XCTestCase.
             #if canImport(XCTest)
             if inXCTestContext {
-                let handler = violationHandler
                 let work = {
                     XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
                         handler(message)
@@ -230,10 +237,10 @@ public enum Airgap {
                     DispatchQueue.main.async { work() }
                 }
             } else {
-                violationHandler(message)
+                handler(message)
             }
             #else
-            violationHandler(message)
+            handler(message)
             #endif
         }
     }
