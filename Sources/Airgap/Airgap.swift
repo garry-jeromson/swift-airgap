@@ -70,9 +70,11 @@ public enum Airgap {
         AirgapURLProtocol.isAllowed = false
         URLProtocol.registerClass(AirgapURLProtocol.self)
 
-        if !hasSwizzled {
-            swizzleSessionConfigurations()
-            hasSwizzled = true
+        lock.withLock {
+            if !hasSwizzled {
+                swizzleSessionConfigurations()
+                hasSwizzled = true
+            }
         }
     }
 

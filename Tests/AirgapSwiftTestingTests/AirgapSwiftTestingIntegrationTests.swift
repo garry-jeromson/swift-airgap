@@ -378,6 +378,62 @@ struct AllAirgapSwiftTestingTests {
             #expect(Airgap.violations.count == 1, "Violations should be collected even without reportPath")
         }
     }
+
+    // MARK: - Trait with mode parameter
+
+    @Suite(.airgapped(mode: .warn))
+    struct TraitWithWarnModeTests {
+
+        @Test func warnModeIsSetViaTrait() {
+            #expect(Airgap.mode == .warn, "Mode should be .warn when set via trait parameter")
+        }
+    }
+
+    @Suite(.airgapped(mode: .warn, allowedHosts: ["localhost"]))
+    struct TraitWithModeAndAllowedHostsTests {
+
+        @Test func modeAndAllowedHostsCombined() {
+            #expect(Airgap.mode == .warn)
+            let localhostURL = URL(string: "https://localhost/api")!
+            #expect(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)) == false)
+        }
+    }
+
+    // MARK: - Trait clears violations per-test
+
+    @Suite(.serialized) struct TraitViolationClearingTests {
+
+        /// Verifies that provideScope clears violations before each test.
+        /// Uses manual activation instead of the trait to avoid Issue.record noise.
+        @Test func violationsAreClearedBetweenScopes() async throws {
+            // Simulate what provideScope does — first scope produces a violation
+            let capture = ViolationCapture()
+            let previousHandler = Airgap.violationHandler
+            defer { Airgap.violationHandler = previousHandler }
+
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.clearViolations()
+            Airgap.activate()
+
+            let url = URL(string: "https://example.com/api/first-scope")!
+            do {
+                _ = try await URLSession.shared.data(from: url)
+            } catch {
+                // Expected — blocked request delivers an error
+            }
+
+            #expect(Airgap.violations.count == 1)
+            Airgap.deactivate()
+
+            // Second scope — provideScope clears violations
+            Airgap.clearViolations()
+            Airgap.activate()
+
+            #expect(Airgap.violations.count == 0,
+                    "Violations from previous scope should be cleared")
+            Airgap.deactivate()
+        }
+    }
 }
 
 // MARK: - Helpers

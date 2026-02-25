@@ -37,13 +37,17 @@ import Testing
 /// ## Violation reporting
 ///
 /// Violations are reported via `Issue.record()` automatically.
-@available(iOS 16.0, macOS 13.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
 
     /// Additional hosts to allow through the guard for the duration of this scope.
     private let additionalAllowedHosts: Set<String>
 
-    public init(allowedHosts: Set<String> = []) {
+    /// Optional mode override for this scope.
+    private let modeOverride: Airgap.Mode?
+
+    public init(mode: Airgap.Mode? = nil, allowedHosts: Set<String> = []) {
+        self.modeOverride = mode
         self.additionalAllowedHosts = allowedHosts
     }
 
@@ -61,10 +65,18 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         if !additionalAllowedHosts.isEmpty {
             Airgap.allowedHosts = previousAllowedHosts.union(additionalAllowedHosts)
         }
+        if let modeOverride {
+            Airgap.mode = modeOverride
+        }
         AirgapURLProtocol.currentTestName = test.name
+        Airgap.clearViolations()
         Airgap.activate()
 
         defer {
+            if let summary = Airgap.violationSummary() {
+                print(summary)
+            }
+            Airgap.writeReport()
             Airgap.deactivate()
             Airgap.violationHandler = previousHandler
             Airgap.allowedHosts = previousAllowedHosts
@@ -75,7 +87,7 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension Trait where Self == AirgapTrait {
     /// Activates Airgap for the duration of the test or suite.
     public static var airgapped: Self { Self() }
@@ -83,6 +95,16 @@ extension Trait where Self == AirgapTrait {
     /// Activates Airgap with specific hosts allowed through the guard.
     public static func airgapped(allowedHosts: Set<String>) -> Self {
         Self(allowedHosts: allowedHosts)
+    }
+
+    /// Activates Airgap with a specific mode.
+    public static func airgapped(mode: Airgap.Mode) -> Self {
+        Self(mode: mode)
+    }
+
+    /// Activates Airgap with a specific mode and allowed hosts.
+    public static func airgapped(mode: Airgap.Mode, allowedHosts: Set<String>) -> Self {
+        Self(mode: mode, allowedHosts: allowedHosts)
     }
 }
 #endif

@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "Airgap",
-    platforms: [.iOS(.v16), .macOS(.v13)],
+    platforms: [.iOS(.v16), .macOS(.v13), .tvOS(.v16), .watchOS(.v9)],
     products: [
         .library(name: "Airgap", targets: ["Airgap"]),
     ],

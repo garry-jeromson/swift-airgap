@@ -4,7 +4,7 @@
   <p><strong>Stop your unit tests from accidentally hitting real APIs.</strong></p>
 </div>
 
-Detect and fail any test that attempts a real HTTP/HTTPS network request. Drop-in, zero dependencies, supports both XCTest and Swift Testing.
+Detect and fail any test that attempts a real HTTP/HTTPS network request. Drop-in, zero dependencies, supports both XCTest and Swift Testing. Works on iOS, macOS, tvOS, and watchOS.
 
 ## Overview
 
@@ -195,6 +195,22 @@ AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1,*.mock-server.local
 ## Warning Mode
 
 By default, Airgap fails tests immediately on any violation (`.fail` mode). Use `.warn` mode to detect violations without failing tests — violations appear as expected failures in Xcode's issue navigator.
+
+### Swift Testing trait
+
+```swift
+@Suite(.airgapped(mode: .warn))
+struct MyTests {
+    // Violations are recorded but don't fail the test
+}
+```
+
+Combine with allowed hosts:
+
+```swift
+@Suite(.airgapped(mode: .warn, allowedHosts: ["localhost"]))
+struct MyTests { ... }
+```
 
 ### Programmatic
 
