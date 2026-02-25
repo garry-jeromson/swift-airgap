@@ -37,6 +37,9 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
         set { lock.withLock { _capturedCallStacks = newValue } }
     }
 
+    /// Captured request metadata keyed by URL string, for including body/header info in violations.
+    nonisolated(unsafe) private static var _capturedRequests: [String: URLRequest] = [:]
+
     /// Key used to mark requests as already handled, preventing infinite interception loops.
     private static let handledKey = "AirgapHandled"
 
@@ -61,11 +64,12 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
             return false
         }
 
-        // Capture the call stack at interception time (more likely to contain the originating call)
+        // Capture the call stack and request at interception time
         let callStack = Thread.callStackSymbols
         if let urlString = request.url?.absoluteString {
             lock.withLock {
                 _capturedCallStacks[urlString] = callStack
+                _capturedRequests[urlString] = request
             }
         }
 
@@ -81,15 +85,14 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
         let method = request.httpMethod ?? "GET"
         let testName = Self.currentTestName
 
-        // Retrieve the call stack captured in canInit
-        let callStack: [String]
-        if let stored = Self.lock.withLock({ Self._capturedCallStacks.removeValue(forKey: url) }) {
-            callStack = stored
-        } else {
-            callStack = Thread.callStackSymbols
+        // Retrieve the call stack and original request captured in canInit
+        let (storedStack, capturedRequest) = Self.lock.withLock {
+            (Self._capturedCallStacks.removeValue(forKey: url),
+             Self._capturedRequests.removeValue(forKey: url))
         }
+        let callStack = storedStack ?? Thread.callStackSymbols
 
-        Airgap.reportViolation(method: method, url: url, callStack: callStack, testName: testName)
+        Airgap.reportViolation(method: method, url: url, callStack: callStack, testName: testName, request: capturedRequest ?? request)
 
         // Deliver an error so the code under test receives a failure rather than hanging.
         let error = NSError(

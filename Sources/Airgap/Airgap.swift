@@ -139,12 +139,17 @@ public enum Airgap {
     }
 
     /// Reports a network violation through the configured handler.
-    static func reportViolation(method: String, url: String, callStack: [String], testName: String) {
-        let message = """
+    static func reportViolation(method: String, url: String, callStack: [String], testName: String, request: URLRequest? = nil) {
+        var message = """
         Airgap: Blocked \(method) request to \(url). \
         Tests must not make real network calls. \
         Use a mock or stub instead.
         """
+
+        // Include Content-Type if present (helps identify the type of request)
+        if let contentType = request?.value(forHTTPHeaderField: "Content-Type") {
+            message += "\nContent-Type: \(contentType)"
+        }
 
         // Collect violation if reportPath is set
         if reportPath != nil {

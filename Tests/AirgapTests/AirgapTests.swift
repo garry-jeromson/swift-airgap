@@ -677,6 +677,42 @@ final class AirgapTests: XCTestCase {
         XCTAssertTrue(capture.messages[0].contains("HEAD"))
     }
 
+    // MARK: - Violation message includes request details
+
+    func testViolationMessageIncludesContentType() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "POST completes")
+        var request = URLRequest(url: URL(string: "https://example.com/api/content-type")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("application/json"),
+                      "Violation should include Content-Type header")
+    }
+
+    func testViolationMessageOmitsContentTypeWhenAbsent() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "GET completes")
+        let url = URL(string: "https://example.com/api/no-content-type")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertFalse(capture.messages[0].contains("Content-Type"),
+                       "GET without Content-Type should not include it")
+    }
+
     // MARK: - Upload and download tasks
 
     func testUploadTaskIsBlocked() {
