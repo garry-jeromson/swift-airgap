@@ -3,23 +3,27 @@ import XCTest
 
 final class AirgapTests: XCTestCase {
 
-    private var violations: [String] = []
-    private var originalHandler: ((String) -> Void)!
+    private let capture = ViolationCapture()
+    private var originalHandler: (@Sendable (String) -> Void)!
     private var originalMode: Airgap.Mode!
     private var originalReportPath: String?
+    private var originalAllowedHosts: Set<String>!
 
     override func setUp() {
         super.setUp()
-        violations = []
+        capture.reset()
         originalHandler = Airgap.violationHandler
         originalMode = Airgap.mode
         originalReportPath = Airgap.reportPath
+        originalAllowedHosts = Airgap.allowedHosts
 
-        Airgap.violationHandler = { [unowned self] message in
-            self.violations.append(message)
+        let cap = capture
+        Airgap.violationHandler = { message in
+            cap.record(message)
         }
         Airgap.mode = .fail
         Airgap.reportPath = nil
+        Airgap.allowedHosts = []
         Airgap.clearViolations()
     }
 
@@ -28,6 +32,7 @@ final class AirgapTests: XCTestCase {
         Airgap.violationHandler = originalHandler
         Airgap.mode = originalMode
         Airgap.reportPath = originalReportPath
+        Airgap.allowedHosts = originalAllowedHosts
         Airgap.clearViolations()
         super.tearDown()
     }
@@ -66,7 +71,7 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(capture.count, 1)
     }
 
     func testURLSessionSharedAsyncDataIsBlocked() async {
@@ -81,7 +86,7 @@ final class AirgapTests: XCTestCase {
             // Expected
         }
 
-        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(capture.count, 1)
     }
 
     func testURLSessionWithDefaultConfigIsBlocked() {
@@ -98,7 +103,7 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(capture.count, 1)
     }
 
     func testURLSessionWithEphemeralConfigIsBlocked() {
@@ -115,7 +120,7 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(capture.count, 1)
     }
 
     func testHTTPSchemeIsBlocked() {
@@ -130,7 +135,7 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(capture.count, 1)
     }
 
     // MARK: - Non-HTTP schemes
@@ -149,7 +154,7 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertTrue(violations.isEmpty)
+        XCTAssertTrue(capture.isEmpty)
 
         try? FileManager.default.removeItem(at: tempFile)
     }
@@ -163,7 +168,7 @@ final class AirgapTests: XCTestCase {
         let request = URLRequest(url: url)
 
         XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
-        XCTAssertTrue(violations.isEmpty)
+        XCTAssertTrue(capture.isEmpty)
     }
 
     // MARK: - Violation message
@@ -179,9 +184,9 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(capture.count, 1)
 
-        let message = violations[0]
+        let message = capture.messages[0]
         XCTAssertTrue(message.contains("https://example.com/api/test"), "Message should contain the URL")
         XCTAssertTrue(message.contains("GET"), "Message should contain the HTTP method")
         XCTAssertTrue(message.contains("mock") || message.contains("stub"), "Message should contain guidance")
@@ -197,7 +202,7 @@ final class AirgapTests: XCTestCase {
         let request = URLRequest(url: url)
 
         XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
-        XCTAssertTrue(violations.isEmpty)
+        XCTAssertTrue(capture.isEmpty)
     }
 
     func testActivateResetsAllowFlag() {
@@ -245,7 +250,7 @@ final class AirgapTests: XCTestCase {
         // In warn mode, the violation is handled via XCTExpectFailure internally
         // and does NOT call the custom violationHandler, so the violations array
         // captured by our test handler should be empty.
-        XCTAssertEqual(violations.count, 0)
+        XCTAssertEqual(capture.count, 0)
     }
 
     func testFailModeCallsViolationHandlerDirectly() {
@@ -260,8 +265,8 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(violations.count, 1)
-        XCTAssertTrue(violations[0].contains("fail-test"))
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages[0].contains("fail-test"))
     }
 
     // MARK: - Violation collection
@@ -393,9 +398,167 @@ final class AirgapTests: XCTestCase {
         Airgap.activate()
         XCTAssertEqual(Airgap.mode, .warn)
     }
+
+    // MARK: - configureFromEnvironment
+
+    func testConfigureFromEnvironmentDoesNotCrashWithNoEnvVars() {
+        Airgap.mode = .fail
+        Airgap.reportPath = nil
+        Airgap.configureFromEnvironment()
+        // Should not change mode or reportPath when env vars are not set
+        XCTAssertEqual(Airgap.mode, .fail)
+        XCTAssertNil(Airgap.reportPath)
+    }
+
+    // MARK: - Allowed hosts
+
+    func testAllowedHostIsNotBlocked() {
+        Airgap.allowedHosts = ["example.com"]
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/test")!
+        let request = URLRequest(url: url)
+
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
+        XCTAssertTrue(capture.isEmpty)
+    }
+
+    func testNonAllowedHostIsBlocked() {
+        Airgap.allowedHosts = ["localhost"]
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/test")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1)
+    }
+
+    func testAllowedHostsPersistAcrossActivations() {
+        Airgap.allowedHosts = ["localhost", "127.0.0.1"]
+        Airgap.activate()
+        Airgap.deactivate()
+        Airgap.activate()
+
+        XCTAssertTrue(Airgap.allowedHosts.contains("localhost"))
+        XCTAssertTrue(Airgap.allowedHosts.contains("127.0.0.1"))
+
+        let url = URL(string: "https://localhost/api/test")!
+        let request = URLRequest(url: url)
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
+    }
+
+    func testAllowedHostsCanBeModifiedIncrementally() {
+        Airgap.allowedHosts = []
+        Airgap.allowedHosts.insert("localhost")
+        Airgap.activate()
+
+        let localhostURL = URL(string: "https://localhost/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)))
+
+        let externalURL = URL(string: "https://example.com/api")!
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)))
+    }
+
+    func testAllowedHostsWithMultipleHosts() {
+        Airgap.allowedHosts = ["localhost", "127.0.0.1", "mock-server.local"]
+        Airgap.activate()
+
+        for host in ["localhost", "127.0.0.1", "mock-server.local"] {
+            let url = URL(string: "https://\(host)/api")!
+            XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                           "\(host) should not be blocked")
+        }
+
+        let blockedURL = URL(string: "https://real-api.example.com/data")!
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: URLRequest(url: blockedURL)),
+                      "Non-allowed host should be blocked")
+    }
+
+    func testAllowedHostsEmptyByDefault() {
+        // After setUp resets allowedHosts to []
+        XCTAssertTrue(Airgap.allowedHosts.isEmpty)
+    }
+
+    func testAllowedHostsWithHTTPScheme() {
+        Airgap.allowedHosts = ["localhost"]
+        Airgap.activate()
+
+        let url = URL(string: "http://localhost:8080/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)))
+    }
+
+    func testAllowedHostsCombinedWithAllowNetworkAccess() {
+        Airgap.allowedHosts = ["localhost"]
+        Airgap.activate()
+        Airgap.allowNetworkAccess()
+
+        // Both mechanisms should prevent blocking
+        let externalURL = URL(string: "https://example.com/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)))
+    }
+
+    // MARK: - Violation summary
+
+    func testViolationSummaryReturnsNilWhenNoViolations() {
+        XCTAssertNil(Airgap.violationSummary())
+    }
+
+    func testViolationSummaryReturnsFormattedString() {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ng-summary-\(UUID().uuidString).txt").path
+        Airgap.reportPath = tempPath
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/summary-test")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        let summary = Airgap.violationSummary()
+        XCTAssertNotNil(summary)
+        XCTAssertTrue(summary?.contains("1 violation(s)") ?? false)
+        XCTAssertTrue(summary?.contains("1 test(s)") ?? false)
+
+        try? FileManager.default.removeItem(atPath: tempPath)
+    }
 }
 
 // MARK: - Helpers
+
+/// Thread-safe violation capture for use in tests with @Sendable closures.
+private final class ViolationCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _messages: [String] = []
+
+    var messages: [String] {
+        lock.withLock { _messages }
+    }
+
+    var count: Int {
+        lock.withLock { _messages.count }
+    }
+
+    var isEmpty: Bool {
+        lock.withLock { _messages.isEmpty }
+    }
+
+    func record(_ message: String) {
+        lock.withLock { _messages.append(message) }
+    }
+
+    func reset() {
+        lock.withLock { _messages = [] }
+    }
+}
 
 /// A concrete subclass of AirgapTestCase for testing the lifecycle methods.
 private final class LifecycleTestCase: AirgapTestCase {

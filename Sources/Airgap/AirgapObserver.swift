@@ -27,7 +27,7 @@ import XCTest
 ///
 /// Individual tests that need real network access call `Airgap.allowNetworkAccess()`.
 @objc(AirgapObserver)
-open class AirgapObserver: NSObject, XCTestObservation {
+open class AirgapObserver: NSObject, XCTestObservation, @unchecked Sendable {
 
     override public init() {
         super.init()
@@ -45,6 +45,9 @@ open class AirgapObserver: NSObject, XCTestObservation {
     }
 
     public func testBundleDidFinish(_ testBundle: Bundle) {
+        if let summary = Airgap.violationSummary() {
+            print(summary)
+        }
         Airgap.writeReport()
         Airgap.deactivate()
     }

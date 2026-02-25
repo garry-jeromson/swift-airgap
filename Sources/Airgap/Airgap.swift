@@ -10,7 +10,7 @@ import XCTest
 public enum Airgap {
 
     /// Controls how violations are reported.
-    public enum Mode {
+    public enum Mode: Equatable, Sendable {
         /// Default: calls the violation handler directly (XCTFail by default).
         case fail
         /// Wraps the violation in XCTExpectFailure so it appears in Xcode's issue navigator
@@ -18,20 +18,36 @@ public enum Airgap {
         case warn
     }
 
-    /// The current violation reporting mode. Defaults to `.fail`.
-    public static var mode: Mode = .fail
+    private static let lock = NSLock()
 
+    nonisolated(unsafe) private static var _mode: Mode = .fail
+    /// The current violation reporting mode. Defaults to `.fail`.
+    public static var mode: Mode {
+        get { lock.withLock { _mode } }
+        set { lock.withLock { _mode = newValue } }
+    }
+
+    nonisolated(unsafe) private static var _reportPath: String?
     /// When set, violations are collected and written to this file path.
-    public static var reportPath: String?
+    public static var reportPath: String? {
+        get { lock.withLock { _reportPath } }
+        set { lock.withLock { _reportPath = newValue } }
+    }
 
     /// Collected violations when `reportPath` is set.
-    public private(set) static var violations: [Violation] = []
+    nonisolated(unsafe) public private(set) static var violations: [Violation] = []
 
-    private static let violationsLock = NSLock()
+    /// Hosts that are allowed through even when the guard is active.
+    /// Useful for tests that hit localhost or mock servers.
+    nonisolated(unsafe) private static var _allowedHosts: Set<String> = []
+    public static var allowedHosts: Set<String> {
+        get { lock.withLock { _allowedHosts } }
+        set { lock.withLock { _allowedHosts = newValue } }
+    }
 
     /// Called when a network violation is detected. Defaults to `XCTFail()`.
     /// Set to `{ Issue.record($0) }` for Swift Testing, or any custom handler.
-    public static var violationHandler: (String) -> Void = { message in
+    nonisolated(unsafe) public static var violationHandler: @Sendable (String) -> Void = { message in
         #if canImport(XCTest)
         XCTFail(message)
         #else
@@ -40,7 +56,7 @@ public enum Airgap {
     }
 
     /// Whether swizzling has been applied (only needs to happen once).
-    private static var hasSwizzled = false
+    nonisolated(unsafe) private static var hasSwizzled = false
 
     /// Activates the network guard. Registers the URLProtocol and swizzles session configurations.
     ///
@@ -69,11 +85,25 @@ public enum Airgap {
         AirgapURLProtocol.isAllowed = true
     }
 
+    /// Returns `true` if the given host is in the `allowedHosts` set.
+    static func isHostAllowed(_ host: String) -> Bool {
+        lock.withLock { _allowedHosts.contains(host) }
+    }
+
     /// Resets the collected violations list.
     public static func clearViolations() {
-        violationsLock.withLock {
+        lock.withLock {
             violations = []
         }
+    }
+
+    /// Returns a summary string of collected violations, or `nil` if there are none.
+    public static func violationSummary() -> String? {
+        let currentViolations = lock.withLock { violations }
+        guard !currentViolations.isEmpty else { return nil }
+
+        let testNames = Set(currentViolations.map(\.testName))
+        return "Airgap: \(currentViolations.count) violation(s) detected across \(testNames.count) test(s)"
     }
 
     /// Reads environment variables to configure mode and report path.
@@ -107,7 +137,7 @@ public enum Airgap {
                 url: url,
                 callStack: callStack
             )
-            violationsLock.withLock {
+            lock.withLock {
                 violations.append(violation)
             }
         }
@@ -127,7 +157,7 @@ public enum Airgap {
             if Thread.isMainThread {
                 work()
             } else {
-                DispatchQueue.main.sync { work() }
+                DispatchQueue.main.async { work() }
             }
             #else
             violationHandler(message)
@@ -144,7 +174,7 @@ public enum Airgap {
     public static func writeReport() {
         guard let path = reportPath else { return }
 
-        let currentViolations = violationsLock.withLock { violations }
+        let currentViolations = lock.withLock { violations }
         guard !currentViolations.isEmpty else { return }
 
         let dateFormatter = DateFormatter()

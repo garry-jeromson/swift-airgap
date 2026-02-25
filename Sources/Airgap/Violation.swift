@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a single network violation detected by Airgap.
-public struct Violation {
+public struct Violation: Sendable {
     public let testName: String
     public let httpMethod: String
     public let url: String

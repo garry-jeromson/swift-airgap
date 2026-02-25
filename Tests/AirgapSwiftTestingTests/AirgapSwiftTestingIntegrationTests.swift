@@ -20,16 +20,16 @@ struct AllAirgapSwiftTestingTests {
 
             let url = URL(string: "https://example.com/api")!
             let semaphore = DispatchSemaphore(value: 0)
-            var receivedError: (any Error)?
+            let errorCapture = ErrorCapture()
 
             URLSession.shared.dataTask(with: url) { _, _, error in
-                receivedError = error
+                errorCapture.set(error)
                 semaphore.signal()
             }.resume()
             semaphore.wait()
 
             #expect(capture.count == 1)
-            #expect(receivedError != nil, "Blocked request should deliver an error")
+            #expect(errorCapture.value != nil, "Blocked request should deliver an error")
         }
 
         @Test func customSessionWithDefaultConfigIsBlocked() {
@@ -195,6 +195,104 @@ struct AllAirgapSwiftTestingTests {
         }
     }
 
+    // MARK: - Allowed hosts tests
+
+    @Suite struct AllowedHostsTests {
+
+        @Test func allowedHostIsNotBlocked() {
+            let capture = ViolationCapture()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.allowedHosts = ["example.com"]
+            Airgap.activate()
+            defer {
+                Airgap.deactivate()
+                Airgap.allowedHosts = []
+            }
+
+            let url = URL(string: "https://example.com/api")!
+            let request = URLRequest(url: url)
+
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
+            #expect(capture.isEmpty)
+        }
+
+        @Test func nonAllowedHostIsBlocked() {
+            let capture = ViolationCapture()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.allowedHosts = ["localhost"]
+            Airgap.activate()
+            defer {
+                Airgap.deactivate()
+                Airgap.allowedHosts = []
+            }
+
+            let url = URL(string: "https://example.com/api")!
+            let semaphore = DispatchSemaphore(value: 0)
+
+            URLSession.shared.dataTask(with: url) { _, _, _ in
+                semaphore.signal()
+            }.resume()
+            semaphore.wait()
+
+            #expect(capture.count == 1)
+        }
+
+        @Test func multipleAllowedHostsWork() {
+            let capture = ViolationCapture()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.allowedHosts = ["localhost", "127.0.0.1"]
+            Airgap.activate()
+            defer {
+                Airgap.deactivate()
+                Airgap.allowedHosts = []
+            }
+
+            let localhostURL = URL(string: "https://localhost/api")!
+            #expect(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)) == false)
+
+            let loopbackURL = URL(string: "https://127.0.0.1/api")!
+            #expect(AirgapURLProtocol.canInit(with: URLRequest(url: loopbackURL)) == false)
+
+            #expect(capture.isEmpty)
+        }
+    }
+
+    // MARK: - Violation summary tests
+
+    @Suite struct ViolationSummaryTests {
+
+        @Test func summaryIsNilWithNoViolations() {
+            Airgap.clearViolations()
+            #expect(Airgap.violationSummary() == nil)
+        }
+
+        @Test func summaryContainsViolationCount() {
+            let capture = ViolationCapture()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.reportPath = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ng-st-summary-\(UUID().uuidString).txt").path
+            Airgap.clearViolations()
+            Airgap.activate()
+            defer {
+                Airgap.deactivate()
+                Airgap.reportPath = nil
+                Airgap.clearViolations()
+            }
+
+            let url = URL(string: "https://example.com/api/summary")!
+            let semaphore = DispatchSemaphore(value: 0)
+
+            URLSession.shared.dataTask(with: url) { _, _, _ in
+                semaphore.signal()
+            }.resume()
+            semaphore.wait()
+
+            let summary = Airgap.violationSummary()
+            #expect(summary != nil)
+            #expect(summary?.contains("1 violation(s)") == true)
+        }
+    }
+
     @Suite struct TraitAbsenceTests {
 
         @Test func unguardedSuiteDoesNotBlock() {
@@ -209,6 +307,20 @@ struct AllAirgapSwiftTestingTests {
 }
 
 // MARK: - Helpers
+
+/// Thread-safe error capture for use in Swift Testing tests.
+final class ErrorCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: (any Error)?
+
+    var value: (any Error)? {
+        lock.withLock { _value }
+    }
+
+    func set(_ error: (any Error)?) {
+        lock.withLock { _value = error }
+    }
+}
 
 /// Thread-safe violation capture for use in Swift Testing tests.
 final class ViolationCapture: @unchecked Sendable {

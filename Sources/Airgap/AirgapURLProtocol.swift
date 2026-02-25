@@ -5,25 +5,25 @@ import Foundation
 /// This protocol is registered via `URLProtocol.registerClass()` to catch `URLSession.shared` usage,
 /// and injected into `URLSessionConfiguration.default` and `.ephemeral` via swizzling to catch
 /// custom session configurations.
-public final class AirgapURLProtocol: URLProtocol {
+public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
 
     // MARK: - Thread-safe state
 
     private static let lock = NSLock()
 
-    private static var _isActive = false
+    nonisolated(unsafe) private static var _isActive = false
     public internal(set) static var isActive: Bool {
         get { lock.withLock { _isActive } }
         set { lock.withLock { _isActive = newValue } }
     }
 
-    private static var _isAllowed = false
+    nonisolated(unsafe) private static var _isAllowed = false
     public internal(set) static var isAllowed: Bool {
         get { lock.withLock { _isAllowed } }
         set { lock.withLock { _isAllowed = newValue } }
     }
 
-    private static var _currentTestName = ""
+    nonisolated(unsafe) private static var _currentTestName = ""
     /// The name of the currently running test, set by the observer or test case.
     public internal(set) static var currentTestName: String {
         get { lock.withLock { _currentTestName } }
@@ -31,7 +31,7 @@ public final class AirgapURLProtocol: URLProtocol {
     }
 
     /// Captured call stacks keyed by request URL string, for associating stack traces with violations.
-    private static var _capturedCallStacks: [String: [String]] = [:]
+    nonisolated(unsafe) private static var _capturedCallStacks: [String: [String]] = [:]
     private static var capturedCallStacks: [String: [String]] {
         get { lock.withLock { _capturedCallStacks } }
         set { lock.withLock { _capturedCallStacks = newValue } }
@@ -48,6 +48,11 @@ public final class AirgapURLProtocol: URLProtocol {
         // Only intercept http and https schemes
         guard let scheme = request.url?.scheme?.lowercased(),
               scheme == "http" || scheme == "https" else {
+            return false
+        }
+
+        // Allow requests to hosts in the allowlist
+        if let host = request.url?.host, Airgap.isHostAllowed(host) {
             return false
         }
 

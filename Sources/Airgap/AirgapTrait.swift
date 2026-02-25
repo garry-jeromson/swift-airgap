@@ -37,7 +37,7 @@ import Testing
 /// ## Violation reporting
 ///
 /// Violations are reported via `Issue.record()` automatically.
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
 
     public func provideScope(
@@ -58,7 +58,7 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
     }
 }
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 extension Trait where Self == AirgapTrait {
     /// Activates Airgap for the duration of the test or suite.
     public static var airgapped: Self { Self() }
