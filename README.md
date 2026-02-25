@@ -12,21 +12,13 @@ Tests should never make real outgoing network calls — they slow down the suite
 
 ## Installation
 
-### Local SPM dependency (monorepo)
-
-In your `Package.swift` or Xcode project, add a local dependency:
-
-```swift
-.package(path: "../Airgap")
-```
-
-Then add `"Airgap"` to your test target's dependencies.
-
-### Remote URL
+Add the package to your `Package.swift` or Xcode project:
 
 ```swift
 .package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.0.0")
 ```
+
+Then add `"Airgap"` to your test target's dependencies.
 
 ## Quick Start
 
