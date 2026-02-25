@@ -96,6 +96,7 @@ public enum Airgap {
         lock.withLock {
             if !hasSwizzled {
                 swizzleSessionConfigurations()
+                swizzleSessionInit()
                 swizzleTaskResume()
                 hasSwizzled = true
             }
@@ -315,6 +316,36 @@ public enum Airgap {
             }
             config.protocolClasses = protocols
             return config
+        }
+
+        let swizzledIMP = imp_implementationWithBlock(swizzledBlock)
+        method_setImplementation(method, swizzledIMP)
+    }
+
+    /// Swizzles `URLSession.sessionWithConfiguration:delegate:delegateQueue:` (the class
+    /// method that backs Swift's `URLSession(configuration:delegate:delegateQueue:)`) to inject
+    /// `AirgapURLProtocol` into the configuration at session creation time.
+    ///
+    /// This closes the gap where a configuration is obtained before `activate()` is called
+    /// (e.g., KMP/Ktor eagerly initializing during module load). Even if the config missed
+    /// the property-getter swizzle, the protocol is injected when the session is created.
+    private static func swizzleSessionInit() {
+        let selector = NSSelectorFromString("sessionWithConfiguration:delegate:delegateQueue:")
+        guard let method = class_getClassMethod(URLSession.self, selector) else {
+            return
+        }
+
+        let originalIMP = method_getImplementation(method)
+        typealias OriginalFunction = @convention(c) (AnyObject, Selector, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession
+        let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
+
+        let swizzledBlock: @convention(block) (AnyObject, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession = { obj, config, delegate, queue in
+            var protocols = config.protocolClasses ?? []
+            if !protocols.contains(where: { $0 == AirgapURLProtocol.self }) {
+                protocols.insert(AirgapURLProtocol.self, at: 0)
+            }
+            config.protocolClasses = protocols
+            return originalFunction(obj, selector, config, delegate, queue)
         }
 
         let swizzledIMP = imp_implementationWithBlock(swizzledBlock)

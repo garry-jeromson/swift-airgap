@@ -1128,6 +1128,83 @@ final class AirgapTests: XCTestCase {
         XCTAssertTrue(summary?.contains("1 violation(s)") ?? false)
         XCTAssertTrue(summary?.contains("1 test(s)") ?? false)
     }
+
+    // MARK: - KMP / Ktor Darwin Engine Pattern
+
+    /// Simulates what Ktor's Darwin engine does: creates a URLSession from
+    /// URLSessionConfiguration.default after Airgap is active. The swizzled
+    /// config getter should inject AirgapURLProtocol, so the request is caught.
+    func testKtorDarwinEnginePatternIsIntercepted() {
+        Airgap.activate()
+
+        // Ktor's Darwin engine creates sessions like this:
+        let config = URLSessionConfiguration.default
+        let session = URLSession(configuration: config)
+        let url = URL(string: "https://api.example.com/kmp/endpoint")!
+
+        let expectation = expectation(description: "KMP-style request completes")
+
+        session.dataTask(with: url) { _, _, error in
+            XCTAssertNotNil(error, "Request should be blocked by Airgap")
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1, "Violation should be captured for Ktor-style session")
+    }
+
+    /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
+    /// the configuration was obtained before activate() — closing the timing gap for
+    /// KMP/Ktor code that eagerly creates its URLSession during module load.
+    func testSessionFromPreActivationConfigIsInterceptedViaInitSwizzle() {
+        // Grab config BEFORE activation — simulates Ktor initializing early.
+        // The config-getter swizzle hasn't fired yet, so this config has no AirgapURLProtocol.
+        let preActivationConfig = URLSessionConfiguration.default
+
+        Airgap.activate()
+
+        // The init swizzle injects AirgapURLProtocol when the session is created,
+        // even though the config was obtained before activation.
+        let session = URLSession(configuration: preActivationConfig)
+        let url = URL(string: "https://api.example.com/kmp/early-init")!
+
+        let expectation = expectation(description: "Pre-activation config request completes")
+
+        session.dataTask(with: url) { _, _, error in
+            XCTAssertNotNil(error, "Request should be blocked by Airgap")
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(capture.count, 1,
+                       "Init swizzle should catch requests from pre-activation configs")
+    }
+
+    /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol into the
+    /// config passed to the initializer, even for non-standard configs like background.
+    /// The config-getter swizzle only covers .default and .ephemeral.
+    func testInitSwizzleInjectsProtocolIntoConfigBeforeSessionCreation() {
+        Airgap.activate()
+
+        // Background configs are created via a factory method, not .default/.ephemeral,
+        // so the config-getter swizzle does not inject AirgapURLProtocol.
+        let config = URLSessionConfiguration.background(withIdentifier: "com.airgap.test.\(UUID().uuidString)")
+        XCTAssertFalse(
+            (config.protocolClasses ?? []).contains(where: { $0 == AirgapURLProtocol.self }),
+            "Background config should NOT have AirgapURLProtocol before session creation"
+        )
+
+        // Creating the session triggers the init swizzle, which mutates the config
+        // to include AirgapURLProtocol before passing it to the original initializer.
+        _ = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+
+        // The init swizzle mutates the config object in-place before calling the original init
+        XCTAssertTrue(
+            (config.protocolClasses ?? []).contains(where: { $0 == AirgapURLProtocol.self }),
+            "Init swizzle should have injected AirgapURLProtocol into the config"
+        )
+    }
 }
 
 // MARK: - Helpers
