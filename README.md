@@ -22,7 +22,34 @@ Then add `"Airgap"` to your test target's dependencies.
 
 ## Quick Start
 
-### XCTest — entire test target (recommended)
+### XCTest
+
+Set `AirgapObserver` as the test bundle's principal class — no changes to existing test classes required:
+
+```xml
+<key>NSPrincipalClass</key>
+<string>AirgapObserver</string>
+```
+
+### Swift Testing
+
+Apply the `.airgapped` trait to a suite or test:
+
+```swift
+import Airgap
+import Testing
+
+@Suite(.airgapped)
+struct MyFeatureTests {
+    @Test func fetchData() async throws {
+        // Any HTTP/HTTPS request here will record an Issue
+    }
+}
+```
+
+## XCTest
+
+### Entire test target — NSPrincipalClass (recommended)
 
 Use `AirgapObserver` as the test bundle's principal class. No changes to existing test classes required.
 
@@ -37,40 +64,9 @@ Set `INFOPLIST_KEY_NSPrincipalClass` to `AirgapObserver` in the test target's bu
 
 The observer activates the guard before any test runs and deactivates it after all tests finish. Individual tests opt out with `Airgap.allowNetworkAccess()`.
 
-### Swift Testing — `.airgapped` trait
-
-Apply the trait to a suite or individual test:
-
-```swift
-import Airgap
-import Testing
-
-@Suite(.airgapped)
-struct MyFeatureTests {
-    @Test func fetchData() async throws {
-        // Any HTTP/HTTPS request here will record an Issue
-    }
-}
-```
-
-Or per-test:
-
-```swift
-@Test(.airgapped)
-func fetchData() async throws { ... }
-```
-
-The trait automatically sets the violation handler to `Issue.record()` and activates/deactivates the guard around each test.
-
-## Usage Levels
-
-### 1. Entire test target — NSPrincipalClass (XCTest, no code changes)
-
-Set `AirgapObserver` as the test bundle's principal class (see Quick Start above). This is the recommended approach for Xcode test bundles — it requires zero changes to existing test classes.
-
 > **Note:** `NSPrincipalClass` requires an Info.plist, so it works with Xcode test bundles but not standalone SPM test targets. For SPM packages, use the `.airgapped` trait or manual activation.
 
-### 2. Entire test target — base class (XCTest)
+### Entire test target — base class
 
 If you already have a shared base test class, add activation there:
 
@@ -88,7 +84,7 @@ class BaseTestCase: XCTestCase {
 }
 ```
 
-### 3. Individual test suite — XCTest
+### Individual test suite — AirgapTestCase
 
 Inherit from `AirgapTestCase`:
 
@@ -98,25 +94,7 @@ final class MyTests: AirgapTestCase {
 }
 ```
 
-### 4. Individual test suite — Swift Testing
-
-Use the `.airgapped` trait:
-
-```swift
-@Suite(.airgapped)
-struct MyTests {
-    // All tests in this suite are protected
-}
-```
-
-### 5. Individual test — Swift Testing
-
-```swift
-@Test(.airgapped)
-func fetchData() async throws { ... }
-```
-
-### 6. Manual per-test
+### Manual per-test
 
 ```swift
 func testSomething() {
@@ -124,6 +102,41 @@ func testSomething() {
     defer { Airgap.deactivate() }
     // ...
 }
+```
+
+### AirgapObserver vs AirgapTestCase
+
+Both activate the guard automatically, but they differ in scope:
+
+- **`AirgapObserver`** runs at the test-bundle level. It activates the guard once in `testBundleWillStart` and deactivates in `testBundleDidFinish`. Violations accumulate across all tests in the bundle, and the allow flag is automatically reset between tests.
+- **`AirgapTestCase`** runs at the test-class level. It activates in `setUp()` and deactivates in `tearDown()`. Violations are cleared in `setUp()`, so each class starts with a clean slate.
+
+Choose `AirgapObserver` when you want bundle-wide coverage with a single violation report. Choose `AirgapTestCase` when you want per-class isolation.
+
+## Swift Testing
+
+### Suite-level — `.airgapped` trait
+
+Apply the trait to a `@Suite` to protect all tests within it:
+
+```swift
+@Suite(.airgapped)
+struct MyTests {
+    @Test func fetchData() async throws {
+        // Any HTTP/HTTPS request here will record an Issue
+    }
+}
+```
+
+The trait automatically sets the violation handler to `Issue.record()` and activates/deactivates the guard around each test.
+
+### Test-level — `.airgapped` trait
+
+Apply the trait to an individual test:
+
+```swift
+@Test(.airgapped)
+func fetchData() async throws { ... }
 ```
 
 ## Allowing Network Access
@@ -293,6 +306,8 @@ Call Stack:
   ...
 ```
 
+> **Note:** Call stacks in the report are truncated to 10 frames.
+
 ## Programmatic Violation Access
 
 Violations are always collected in `Airgap.violations`, regardless of whether a `reportPath` is set:
@@ -308,9 +323,17 @@ v.testName   // "-[MyTests testFetchUser]"
 v.httpMethod // "GET"
 v.url        // "https://api.example.com/user/123"
 v.callStack  // [String] — symbolicated stack frames
+v.timestamp  // Date — when the violation was detected
 
 // Reset:
 Airgap.clearViolations()
+```
+
+`Violation` conforms to `Codable`, so you can serialize violations to JSON:
+
+```swift
+let data = try JSONEncoder().encode(Airgap.violations)
+let json = String(data: data, encoding: .utf8)!
 ```
 
 ## Environment Variables
@@ -336,6 +359,21 @@ Airgap.violationHandler = { message in
     logger.error("Unexpected network call: \(message)")
 }
 ```
+
+## Advanced
+
+### `Airgap.inXCTestContext`
+
+The `inXCTestContext` property controls whether warn mode uses `XCTExpectFailure` to wrap violations as expected failures. When `true`, violations in `.warn` mode are reported via `XCTExpectFailure` so they appear as expected failures in Xcode rather than actual failures. When `false`, the violation handler is called directly.
+
+`AirgapObserver` and `AirgapTestCase` set this to `true` automatically. If you integrate Airgap manually (e.g., via `Airgap.activate()` in a base class), set it yourself:
+
+```swift
+Airgap.inXCTestContext = true
+Airgap.activate()
+```
+
+The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses `Issue.record()` instead.
 
 ## What Gets Blocked
 
