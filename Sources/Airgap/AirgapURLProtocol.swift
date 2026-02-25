@@ -52,12 +52,16 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
             return false
         }
 
-        // Capture the call stack and request at interception time
-        let callStack = Thread.callStackSymbols
+        // Capture the call stack and request if not already captured by the resume() swizzle.
+        // The resume() swizzle provides better call stacks (user's code) vs canInit (URLProtocol internals).
         if let urlString = request.url?.absoluteString {
             lock.withLock {
-                _capturedCallStacks[urlString] = callStack
-                _capturedRequests[urlString] = request
+                if _capturedCallStacks[urlString] == nil {
+                    _capturedCallStacks[urlString] = Thread.callStackSymbols
+                }
+                if _capturedRequests[urlString] == nil {
+                    _capturedRequests[urlString] = request
+                }
             }
         }
 
@@ -95,6 +99,19 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
 
     override public func stopLoading() {
         // Nothing to clean up
+    }
+
+    /// Stores a call stack and request captured at the `resume()` call site.
+    ///
+    /// Called by the swizzled `URLSessionTask.resume()` to provide accurate caller attribution.
+    /// These take priority over stacks captured in `canInit(with:)`.
+    static func storeCapturedCallStack(_ callStack: [String], request: URLRequest?, forURL urlString: String) {
+        lock.withLock {
+            _capturedCallStacks[urlString] = callStack
+            if let request {
+                _capturedRequests[urlString] = request
+            }
+        }
     }
 
     /// Clears any stale captured data (call stacks, requests). Called on deactivation.

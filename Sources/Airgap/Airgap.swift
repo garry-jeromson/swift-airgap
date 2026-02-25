@@ -40,7 +40,12 @@ public enum Airgap {
     /// Violations accumulate across tests until explicitly cleared. When using `AirgapObserver`,
     /// this accumulates for the entire bundle lifetime. When using `AirgapTestCase`, violations
     /// are cleared automatically in `setUp`. Call `clearViolations()` if you need to reset manually.
-    nonisolated(unsafe) public private(set) static var violations: [Violation] = []
+    ///
+    /// Thread-safe: reads and writes are protected by an internal lock.
+    nonisolated(unsafe) private static var _violations: [Violation] = []
+    public static var violations: [Violation] {
+        get { lock.withLock { _violations } }
+    }
 
     /// Hosts that are allowed through even when the guard is active.
     /// Useful for tests that hit localhost or mock servers.
@@ -74,6 +79,7 @@ public enum Airgap {
         lock.withLock {
             if !hasSwizzled {
                 swizzleSessionConfigurations()
+                swizzleTaskResume()
                 hasSwizzled = true
             }
         }
@@ -118,13 +124,13 @@ public enum Airgap {
     /// Resets the collected violations list.
     public static func clearViolations() {
         lock.withLock {
-            violations = []
+            _violations = []
         }
     }
 
     /// Returns a summary string of collected violations, or `nil` if there are none.
     public static func violationSummary() -> String? {
-        let currentViolations = lock.withLock { violations }
+        let currentViolations = lock.withLock { _violations }
         guard !currentViolations.isEmpty else { return nil }
 
         let testNames = Set(currentViolations.map(\.testName))
@@ -183,7 +189,7 @@ public enum Airgap {
             callStack: callStack
         )
         lock.withLock {
-            violations.append(violation)
+            _violations.append(violation)
         }
 
         switch mode {
@@ -216,7 +222,7 @@ public enum Airgap {
     public static func writeReport() {
         guard let path = reportPath else { return }
 
-        let currentViolations = lock.withLock { violations }
+        let currentViolations = lock.withLock { _violations }
         guard !currentViolations.isEmpty else { return }
 
         let dateFormatter = DateFormatter()
@@ -282,6 +288,34 @@ public enum Airgap {
             }
             config.protocolClasses = protocols
             return config
+        }
+
+        let swizzledIMP = imp_implementationWithBlock(swizzledBlock)
+        method_setImplementation(method, swizzledIMP)
+    }
+
+    /// Swizzles `URLSessionTask.resume()` to capture the call stack at the actual call site.
+    ///
+    /// Without this, the call stack captured in `AirgapURLProtocol.canInit(with:)` only contains
+    /// URL loading system internals, not the user's code that initiated the request.
+    private static func swizzleTaskResume() {
+        let selector = #selector(URLSessionTask.resume)
+        guard let method = class_getInstanceMethod(URLSessionTask.self, selector) else {
+            return
+        }
+
+        let originalIMP = method_getImplementation(method)
+        typealias OriginalFunction = @convention(c) (AnyObject, Selector) -> Void
+        let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
+
+        let swizzledBlock: @convention(block) (AnyObject) -> Void = { task in
+            // Capture the call stack at the point where resume() is called —
+            // this is the user's code, not the URL loading system internals.
+            if let sessionTask = task as? URLSessionTask,
+               let urlString = sessionTask.currentRequest?.url?.absoluteString ?? sessionTask.originalRequest?.url?.absoluteString {
+                AirgapURLProtocol.storeCapturedCallStack(Thread.callStackSymbols, request: sessionTask.currentRequest, forURL: urlString)
+            }
+            originalFunction(task, selector)
         }
 
         let swizzledIMP = imp_implementationWithBlock(swizzledBlock)

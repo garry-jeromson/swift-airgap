@@ -956,6 +956,70 @@ final class AirgapTests: XCTestCase {
 
     // MARK: - Violation summary
 
+    // MARK: - Call stack caller attribution
+
+    func testViolationCallStackContainsCallerFrame() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/caller-stack")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(Airgap.violations.count, 1)
+        let callStack = Airgap.violations[0].callStack
+        let containsTestFrame = callStack.contains { frame in
+            frame.contains("testViolationCallStackContainsCallerFrame")
+        }
+        XCTAssertTrue(containsTestFrame,
+                      "Call stack should contain the caller's frame. Got:\n\(callStack.prefix(10).joined(separator: "\n"))")
+    }
+
+    func testViolationCallStackContainsCallerFrameForAsyncAwait() async {
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/caller-stack-async")!
+        do {
+            _ = try await URLSession.shared.data(from: url)
+        } catch {
+            // Expected
+        }
+
+        XCTAssertEqual(Airgap.violations.count, 1)
+        let callStack = Airgap.violations[0].callStack
+        let containsTestFrame = callStack.contains { frame in
+            frame.contains("testViolationCallStackContainsCallerFrameForAsyncAwait")
+        }
+        XCTAssertTrue(containsTestFrame,
+                      "Async call stack should contain the caller's frame. Got:\n\(callStack.prefix(10).joined(separator: "\n"))")
+    }
+
+    // MARK: - Same URL multiple requests
+
+    func testMultipleRequestsToSameURLBothRecorded() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Requests complete")
+        expectation.expectedFulfillmentCount = 2
+        let url = URL(string: "https://example.com/api/same-url")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(Airgap.violations.count, 2,
+                       "Both requests to the same URL should be recorded as violations")
+    }
+
     func testViolationSummaryReturnsNilWhenNoViolations() {
         XCTAssertNil(Airgap.violationSummary())
     }
