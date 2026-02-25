@@ -57,12 +57,18 @@ public enum Airgap {
 
     /// Called when a network violation is detected. Defaults to `XCTFail()`.
     /// Set to `{ Issue.record($0) }` for Swift Testing, or any custom handler.
-    nonisolated(unsafe) public static var violationHandler: @Sendable (String) -> Void = { message in
+    ///
+    /// Thread-safe: reads and writes are protected by an internal lock.
+    nonisolated(unsafe) private static var _violationHandler: @Sendable (String) -> Void = { message in
         #if canImport(XCTest)
         XCTFail(message)
         #else
         assertionFailure(message)
         #endif
+    }
+    public static var violationHandler: @Sendable (String) -> Void {
+        get { lock.withLock { _violationHandler } }
+        set { lock.withLock { _violationHandler = newValue } }
     }
 
     /// Whether swizzling has been applied (only needs to happen once).

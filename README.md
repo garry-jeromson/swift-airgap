@@ -175,7 +175,7 @@ Matching is case-insensitive per RFC 3986. Allowed hosts persist across `activat
 
 #### With the `.airgapped` trait
 
-Pass allowed hosts directly to the trait:
+Pass allowed hosts directly to the trait. Hosts set via the trait parameter are scoped to that test or suite — they are added on entry and restored on exit, without affecting the global `allowedHosts` setting:
 
 ```swift
 @Suite(.airgapped(allowedHosts: ["localhost", "127.0.0.1"]))

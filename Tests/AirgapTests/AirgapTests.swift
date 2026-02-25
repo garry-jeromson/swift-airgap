@@ -1020,6 +1020,38 @@ final class AirgapTests: XCTestCase {
                        "Both requests to the same URL should be recorded as violations")
     }
 
+    // MARK: - Concurrent handler mutation
+
+    func testConcurrentHandlerMutationDoesNotCrash() {
+        Airgap.activate()
+
+        let queue = DispatchQueue(label: "handler-mutation", attributes: .concurrent)
+        let group = DispatchGroup()
+        let iterations = 100
+
+        // Concurrently mutate the handler while violations are being reported
+        for i in 0..<iterations {
+            group.enter()
+            queue.async {
+                let capture = ViolationCapture()
+                Airgap.violationHandler = { capture.record($0) }
+                // Also trigger a violation read to exercise the race window
+                _ = Airgap.violations.count
+                group.leave()
+            }
+            if i % 10 == 0 {
+                group.enter()
+                queue.async {
+                    Airgap.reportViolation(method: "GET", url: "https://example.com/race/\(i)", callStack: [], testName: "test")
+                    group.leave()
+                }
+            }
+        }
+
+        group.wait()
+        // No crash = success
+    }
+
     func testViolationSummaryReturnsNilWhenNoViolations() {
         XCTAssertNil(Airgap.violationSummary())
     }
