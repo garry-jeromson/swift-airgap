@@ -72,10 +72,11 @@ public enum Airgap {
         }
     }
 
-    /// Deactivates the network guard. Unregisters the URLProtocol.
+    /// Deactivates the network guard. Unregisters the URLProtocol and clears captured data.
     public static func deactivate() {
         AirgapURLProtocol.isActive = false
         URLProtocol.unregisterClass(AirgapURLProtocol.self)
+        AirgapURLProtocol.clearCapturedData()
     }
 
     /// Disables the guard for the remainder of the current test.

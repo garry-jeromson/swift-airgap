@@ -16,6 +16,9 @@ open class AirgapTestCase: XCTestCase {
     }
 
     override open func tearDown() {
+        if let summary = Airgap.violationSummary() {
+            print(summary)
+        }
         Airgap.writeReport()
         Airgap.deactivate()
         super.tearDown()

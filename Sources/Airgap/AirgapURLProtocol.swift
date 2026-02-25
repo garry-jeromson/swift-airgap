@@ -108,4 +108,12 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
     override public func stopLoading() {
         // Nothing to clean up
     }
+
+    /// Clears any stale captured data (call stacks, requests). Called on deactivation.
+    static func clearCapturedData() {
+        lock.withLock {
+            _capturedCallStacks.removeAll()
+            _capturedRequests.removeAll()
+        }
+    }
 }
