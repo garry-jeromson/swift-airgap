@@ -21,6 +21,7 @@ final class AirgapTests: XCTestCase {
         Airgap.violationHandler = { message in
             cap.record(message)
         }
+        Airgap.inXCTestContext = true
         Airgap.mode = .fail
         Airgap.reportPath = nil
         Airgap.allowedHosts = []

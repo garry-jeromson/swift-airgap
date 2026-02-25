@@ -71,6 +71,17 @@ public enum Airgap {
         set { lock.withLock { _violationHandler = newValue } }
     }
 
+    /// Whether we're running in an XCTest context (vs Swift Testing or standalone).
+    ///
+    /// Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
+    /// uses `XCTExpectFailure` to show violations in Xcode's issue navigator without failing.
+    /// When `false` (e.g., Swift Testing), warn mode calls the violation handler directly.
+    nonisolated(unsafe) private static var _inXCTestContext = false
+    public static var inXCTestContext: Bool {
+        get { lock.withLock { _inXCTestContext } }
+        set { lock.withLock { _inXCTestContext = newValue } }
+    }
+
     /// Whether swizzling has been applied (only needs to happen once).
     nonisolated(unsafe) private static var hasSwizzled = false
 
@@ -202,21 +213,24 @@ public enum Airgap {
         case .fail:
             violationHandler(message)
         case .warn:
-            // In warn mode, call the configured handler inside XCTExpectFailure so that:
-            // - Default handler (XCTFail): caught by XCTExpectFailure → appears in issue navigator, doesn't fail
-            // - Custom handler (e.g., Issue.record for Swift Testing): runs normally, strict:false means
-            //   XCTExpectFailure tolerates no XCTFail being raised
+            // In warn mode, report the violation without failing the test.
+            // XCTExpectFailure is only safe in an XCTest context — calling it from Swift Testing
+            // crashes because there is no active XCTestCase.
             #if canImport(XCTest)
-            let handler = violationHandler
-            let work = {
-                XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
-                    handler(message)
+            if inXCTestContext {
+                let handler = violationHandler
+                let work = {
+                    XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
+                        handler(message)
+                    }
                 }
-            }
-            if Thread.isMainThread {
-                work()
+                if Thread.isMainThread {
+                    work()
+                } else {
+                    DispatchQueue.main.async { work() }
+                }
             } else {
-                DispatchQueue.main.async { work() }
+                violationHandler(message)
             }
             #else
             violationHandler(message)

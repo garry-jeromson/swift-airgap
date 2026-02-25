@@ -249,6 +249,7 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        Airgap.inXCTestContext = true
         originalMode = Airgap.mode
         Airgap.mode = .warn
     }

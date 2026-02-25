@@ -35,6 +35,7 @@ open class AirgapObserver: NSObject, XCTestObservation, @unchecked Sendable {
     }
 
     open func testBundleWillStart(_ testBundle: Bundle) {
+        Airgap.inXCTestContext = true
         Airgap.configureFromEnvironment()
         Airgap.activate()
     }

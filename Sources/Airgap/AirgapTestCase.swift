@@ -10,6 +10,7 @@ open class AirgapTestCase: XCTestCase {
 
     override open func setUp() {
         super.setUp()
+        Airgap.inXCTestContext = true
         Airgap.configureFromEnvironment()
         Airgap.clearViolations()
         AirgapURLProtocol.currentTestName = name
