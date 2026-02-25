@@ -1,4 +1,8 @@
-# Airgap
+<div align="center">
+  <img src="docs/img/logo.png" alt="Airgap Logo" width="200"/>
+  <h1>Swift Airgap</h1>
+  <p><strong>Stop your unit tests from accidentally hitting real APIs.</strong></p>
+</div>
 
 Detect and fail any test that attempts a real HTTP/HTTPS network request. Drop-in, zero dependencies, supports both XCTest and Swift Testing.
 
