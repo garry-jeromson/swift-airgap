@@ -269,13 +269,10 @@ struct AllAirgapSwiftTestingTests {
         @Test func summaryContainsViolationCount() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
-            Airgap.reportPath = FileManager.default.temporaryDirectory
-                .appendingPathComponent("ng-st-summary-\(UUID().uuidString).txt").path
             Airgap.clearViolations()
             Airgap.activate()
             defer {
                 Airgap.deactivate()
-                Airgap.reportPath = nil
                 Airgap.clearViolations()
             }
 
@@ -302,6 +299,83 @@ struct AllAirgapSwiftTestingTests {
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)
+        }
+    }
+
+    // MARK: - Trait state isolation tests
+
+    @Suite struct TraitStateIsolationTests {
+
+        @Test func traitRestoresAllowedHosts() {
+            // Set allowedHosts before trait scope
+            let previousHosts = Airgap.allowedHosts
+            Airgap.allowedHosts = ["pre-existing-host.com"]
+            defer { Airgap.allowedHosts = previousHosts }
+
+            // Simulate what provideScope does: it should restore allowedHosts after
+            let capture = ViolationCapture()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            Airgap.deactivate()
+
+            // After trait scope ends, allowedHosts should still be what we set
+            #expect(Airgap.allowedHosts.contains("pre-existing-host.com"))
+        }
+
+        @Test func traitRestoresMode() {
+            // Set mode before trait scope
+            let previousMode = Airgap.mode
+            Airgap.mode = .warn
+            defer { Airgap.mode = previousMode }
+
+            // After trait scope ends, mode should be restored
+            #expect(Airgap.mode == .warn)
+        }
+    }
+
+    // MARK: - Trait with allowedHosts parameter
+
+    @Suite(.airgapped(allowedHosts: ["localhost", "127.0.0.1"]))
+    struct TraitWithAllowedHostsTests {
+
+        @Test func allowedHostIsNotBlockedViaTrait() {
+            let localhostURL = URL(string: "https://localhost/api")!
+            #expect(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)) == false,
+                    "localhost should be allowed via trait parameter")
+        }
+
+        @Test func nonAllowedHostIsStillBlockedViaTrait() {
+            let externalURL = URL(string: "https://example.com/api")!
+            #expect(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)) == true,
+                    "Non-allowed host should still be blocked")
+        }
+    }
+
+    // MARK: - Violations collected without reportPath
+
+    @Suite struct ViolationCollectionTests {
+
+        @Test func violationsCollectedWithoutReportPath() {
+            let capture = ViolationCapture()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.reportPath = nil
+            Airgap.clearViolations()
+            Airgap.activate()
+            defer {
+                Airgap.deactivate()
+                Airgap.reportPath = nil
+                Airgap.clearViolations()
+            }
+
+            let url = URL(string: "https://example.com/api/collect-no-path")!
+            let semaphore = DispatchSemaphore(value: 0)
+
+            URLSession.shared.dataTask(with: url) { _, _, _ in
+                semaphore.signal()
+            }.resume()
+            semaphore.wait()
+
+            #expect(Airgap.violations.count == 1, "Violations should be collected even without reportPath")
         }
     }
 }

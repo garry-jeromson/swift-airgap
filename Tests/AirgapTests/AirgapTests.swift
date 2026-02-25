@@ -293,19 +293,20 @@ final class AirgapTests: XCTestCase {
         try? FileManager.default.removeItem(atPath: tempPath)
     }
 
-    func testViolationsNotCollectedWhenReportPathNil() {
+    func testViolationsCollectedEvenWhenReportPathNil() {
         Airgap.reportPath = nil
         Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
-        let url = URL(string: "https://example.com/api/no-collect-test")!
+        let url = URL(string: "https://example.com/api/collect-without-path")!
 
         URLSession.shared.dataTask(with: url) { _, _, _ in
             expectation.fulfill()
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertTrue(Airgap.violations.isEmpty)
+        XCTAssertEqual(Airgap.violations.count, 1, "Violations should be collected regardless of reportPath")
+        XCTAssertEqual(Airgap.violations[0].url, "https://example.com/api/collect-without-path")
     }
 
     // MARK: - Report writing
@@ -853,9 +854,6 @@ final class AirgapTests: XCTestCase {
     }
 
     func testViolationSummaryReturnsFormattedString() {
-        let tempPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ng-summary-\(UUID().uuidString).txt").path
-        Airgap.reportPath = tempPath
         Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
@@ -871,8 +869,6 @@ final class AirgapTests: XCTestCase {
         XCTAssertNotNil(summary)
         XCTAssertTrue(summary?.contains("1 violation(s)") ?? false)
         XCTAssertTrue(summary?.contains("1 test(s)") ?? false)
-
-        try? FileManager.default.removeItem(atPath: tempPath)
     }
 }
 

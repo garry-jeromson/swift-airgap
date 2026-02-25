@@ -434,9 +434,7 @@ final class AirgapViolationSummaryIntegrationTests: XCTestCase {
     }
 
     func testViolationSummaryWithDefaultHandler() {
-        let tempPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ng-summary-int-\(UUID().uuidString).txt").path
-        Airgap.reportPath = tempPath
+        Airgap.clearViolations()
         Airgap.activate()
 
         XCTExpectFailure("Violation should trigger XCTFail")
@@ -453,7 +451,5 @@ final class AirgapViolationSummaryIntegrationTests: XCTestCase {
         let summary = Airgap.violationSummary()
         XCTAssertNotNil(summary)
         XCTAssertTrue(summary?.contains("violation(s)") ?? false)
-
-        try? FileManager.default.removeItem(atPath: tempPath)
     }
 }

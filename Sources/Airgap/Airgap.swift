@@ -152,17 +152,15 @@ public enum Airgap {
             message += "\nContent-Type: \(contentType)"
         }
 
-        // Collect violation if reportPath is set
-        if reportPath != nil {
-            let violation = Violation(
-                testName: testName,
-                httpMethod: method,
-                url: url,
-                callStack: callStack
-            )
-            lock.withLock {
-                violations.append(violation)
-            }
+        // Always collect violations for programmatic access via violations/violationSummary()
+        let violation = Violation(
+            testName: testName,
+            httpMethod: method,
+            url: url,
+            callStack: callStack
+        )
+        lock.withLock {
+            violations.append(violation)
         }
 
         switch mode {

@@ -40,18 +40,35 @@ import Testing
 @available(iOS 16.0, macOS 13.0, *)
 public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
 
+    /// Additional hosts to allow through the guard for the duration of this scope.
+    private let additionalAllowedHosts: Set<String>
+
+    init(allowedHosts: Set<String> = []) {
+        self.additionalAllowedHosts = allowedHosts
+    }
+
     public func provideScope(
         for test: Test,
         testCase: Test.Case?,
         performing function: @Sendable () async throws -> Void
     ) async throws {
+        // Save all mutable state
         let previousHandler = Airgap.violationHandler
+        let previousAllowedHosts = Airgap.allowedHosts
+        let previousMode = Airgap.mode
+
         Airgap.violationHandler = { Issue.record("\($0)") }
+        if !additionalAllowedHosts.isEmpty {
+            Airgap.allowedHosts = previousAllowedHosts.union(additionalAllowedHosts)
+        }
+        AirgapURLProtocol.currentTestName = test.name
         Airgap.activate()
 
         defer {
             Airgap.deactivate()
             Airgap.violationHandler = previousHandler
+            Airgap.allowedHosts = previousAllowedHosts
+            Airgap.mode = previousMode
         }
 
         try await function()
@@ -62,5 +79,10 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
 extension Trait where Self == AirgapTrait {
     /// Activates Airgap for the duration of the test or suite.
     public static var airgapped: Self { Self() }
+
+    /// Activates Airgap with specific hosts allowed through the guard.
+    public static func airgapped(allowedHosts: Set<String>) -> Self {
+        Self(allowedHosts: allowedHosts)
+    }
 }
 #endif
