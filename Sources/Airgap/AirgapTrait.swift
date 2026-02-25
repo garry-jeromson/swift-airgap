@@ -43,7 +43,7 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
     /// Additional hosts to allow through the guard for the duration of this scope.
     private let additionalAllowedHosts: Set<String>
 
-    init(allowedHosts: Set<String> = []) {
+    public init(allowedHosts: Set<String> = []) {
         self.additionalAllowedHosts = allowedHosts
     }
 

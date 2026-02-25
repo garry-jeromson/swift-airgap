@@ -34,7 +34,11 @@ public enum Airgap {
         set { lock.withLock { _reportPath = newValue } }
     }
 
-    /// Collected violations when `reportPath` is set.
+    /// Violations collected since the last `clearViolations()` call.
+    ///
+    /// Violations accumulate across tests until explicitly cleared. When using `AirgapObserver`,
+    /// this accumulates for the entire bundle lifetime. When using `AirgapTestCase`, violations
+    /// are cleared automatically in `setUp`. Call `clearViolations()` if you need to reset manually.
     nonisolated(unsafe) public private(set) static var violations: [Violation] = []
 
     /// Hosts that are allowed through even when the guard is active.
@@ -124,10 +128,11 @@ public enum Airgap {
         return "Airgap: \(currentViolations.count) violation(s) detected across \(testNames.count) test(s)"
     }
 
-    /// Reads environment variables to configure mode and report path.
+    /// Reads environment variables to configure mode, report path, and allowed hosts.
     ///
     /// - `AIRGAP_MODE=warn` sets `mode = .warn`
     /// - `AIRGAP_REPORT_PATH=/path` sets `reportPath`
+    /// - `AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1` adds hosts to `allowedHosts`
     public static func configureFromEnvironment() {
         if let modeValue = ProcessInfo.processInfo.environment["AIRGAP_MODE"],
            modeValue.lowercased() == "warn" {
@@ -136,6 +141,13 @@ public enum Airgap {
         if let path = ProcessInfo.processInfo.environment["AIRGAP_REPORT_PATH"],
            !path.isEmpty {
             reportPath = path
+        }
+        if let hostsValue = ProcessInfo.processInfo.environment["AIRGAP_ALLOWED_HOSTS"],
+           !hostsValue.isEmpty {
+            let hosts = hostsValue.split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            allowedHosts.formUnion(hosts)
         }
     }
 
@@ -219,8 +231,12 @@ public enum Airgap {
         }
 
         let directory = (path as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        try? report.write(toFile: path, atomically: true, encoding: .utf8)
+        do {
+            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+            try report.write(toFile: path, atomically: true, encoding: .utf8)
+        } catch {
+            fputs("Airgap: Failed to write report to \(path): \(error)\n", stderr)
+        }
     }
 
     // MARK: - Configuration swizzling

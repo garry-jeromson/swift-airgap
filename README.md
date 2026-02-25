@@ -157,6 +157,41 @@ struct MyTests {
 
 The allow flag is automatically reset on the next `activate()` call.
 
+### Allowed Hosts
+
+Allow specific hosts or domains to pass through even when the guard is active. Useful for tests that hit localhost or a mock server:
+
+```swift
+Airgap.allowedHosts = ["localhost", "127.0.0.1"]
+```
+
+Wildcard patterns are supported:
+
+```swift
+Airgap.allowedHosts = ["*.mock-server.local"]  // matches api.mock-server.local, etc.
+```
+
+Matching is case-insensitive per RFC 3986. Allowed hosts persist across `activate()`/`deactivate()` cycles — they are configuration, not per-test state.
+
+#### With the `.airgapped` trait
+
+Pass allowed hosts directly to the trait:
+
+```swift
+@Suite(.airgapped(allowedHosts: ["localhost", "127.0.0.1"]))
+struct MyTests {
+    // localhost requests are allowed; all others are blocked
+}
+```
+
+#### Environment variable
+
+Set `AIRGAP_ALLOWED_HOSTS` to a comma-separated list of hosts. Both `AirgapObserver` and `AirgapTestCase` read this automatically via `configureFromEnvironment()`:
+
+```
+AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1,*.mock-server.local
+```
+
 ## Warning Mode
 
 By default, Airgap fails tests immediately on any violation (`.fail` mode). Use `.warn` mode to detect violations without failing tests — violations appear as expected failures in Xcode's issue navigator.
@@ -241,6 +276,36 @@ Call Stack:
   MyService.postData(_:) + 31
   ...
 ```
+
+## Programmatic Violation Access
+
+Violations are always collected in `Airgap.violations`, regardless of whether a `reportPath` is set:
+
+```swift
+// After tests run:
+print(Airgap.violations.count)          // Number of violations
+print(Airgap.violationSummary() ?? "")  // e.g. "Airgap: 3 violation(s) detected across 2 test(s)"
+
+// Each violation contains:
+let v = Airgap.violations[0]
+v.testName   // "-[MyTests testFetchUser]"
+v.httpMethod // "GET"
+v.url        // "https://api.example.com/user/123"
+v.callStack  // [String] — symbolicated stack frames
+
+// Reset:
+Airgap.clearViolations()
+```
+
+## Environment Variables
+
+| Variable | Values | Description |
+|---|---|---|
+| `AIRGAP_MODE` | `warn` | Enables warning mode (no test failures) |
+| `AIRGAP_REPORT_PATH` | `/path/to/report.txt` | Writes a violation report to this path |
+| `AIRGAP_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts to allow through |
+
+All three are read by `Airgap.configureFromEnvironment()`, which is called automatically by `AirgapObserver` and `AirgapTestCase`.
 
 ## Custom Failure Handling
 

@@ -411,6 +411,35 @@ final class AirgapTests: XCTestCase {
         XCTAssertNil(Airgap.reportPath)
     }
 
+    func testConfigureFromEnvironmentIsIdempotent() {
+        Airgap.configureFromEnvironment()
+        let modeAfterFirst = Airgap.mode
+        let pathAfterFirst = Airgap.reportPath
+
+        Airgap.configureFromEnvironment()
+        XCTAssertEqual(Airgap.mode, modeAfterFirst)
+        XCTAssertEqual(Airgap.reportPath, pathAfterFirst)
+    }
+
+    // MARK: - Deactivate does not clear violations
+
+    func testDeactivateDoesNotClearViolations() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/deactivate-test")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        Airgap.deactivate()
+        XCTAssertEqual(Airgap.violations.count, 1,
+                       "deactivate should not clear violations; call clearViolations() explicitly")
+    }
+
     // MARK: - Allowed hosts
 
     func testAllowedHostIsNotBlocked() {
