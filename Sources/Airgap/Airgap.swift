@@ -13,8 +13,9 @@ public enum Airgap {
     public enum Mode: Equatable, Sendable {
         /// Default: calls the violation handler directly (XCTFail by default).
         case fail
-        /// Wraps the violation in XCTExpectFailure so it appears in Xcode's issue navigator
-        /// as an expected failure without failing the test.
+        /// Calls the violation handler without failing the test. In XCTest, the call is wrapped
+        /// in XCTExpectFailure so it appears in Xcode's issue navigator as an expected failure.
+        /// In Swift Testing with the `.airgapped` trait, violations are collected silently.
         case warn
     }
 
@@ -141,10 +142,14 @@ public enum Airgap {
         if let modeValue = ProcessInfo.processInfo.environment["AIRGAP_MODE"],
            modeValue.lowercased() == "warn" {
             mode = .warn
+        } else {
+            mode = .fail
         }
         if let path = ProcessInfo.processInfo.environment["AIRGAP_REPORT_PATH"],
            !path.isEmpty {
             reportPath = path
+        } else {
+            reportPath = nil
         }
         if let hostsValue = ProcessInfo.processInfo.environment["AIRGAP_ALLOWED_HOSTS"],
            !hostsValue.isEmpty {
@@ -185,12 +190,15 @@ public enum Airgap {
         case .fail:
             violationHandler(message)
         case .warn:
-            // XCTExpectFailure must run on the main thread — startLoading() is
-            // called on com.apple.CFNetwork.CustomProtocols which would crash.
+            // In warn mode, call the configured handler inside XCTExpectFailure so that:
+            // - Default handler (XCTFail): caught by XCTExpectFailure → appears in issue navigator, doesn't fail
+            // - Custom handler (e.g., Issue.record for Swift Testing): runs normally, strict:false means
+            //   XCTExpectFailure tolerates no XCTFail being raised
             #if canImport(XCTest)
+            let handler = violationHandler
             let work = {
-                XCTExpectFailure("Airgap violation (warning mode)") {
-                    XCTFail(message)
+                XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
+                    handler(message)
                 }
             }
             if Thread.isMainThread {

@@ -63,7 +63,15 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         let previousTestName = AirgapURLProtocol.currentTestName
 
         Airgap.configureFromEnvironment()
-        Airgap.violationHandler = { Issue.record("\($0)") }
+        // In fail mode, record violations as Swift Testing Issues.
+        // In warn mode, the violation is already collected in Airgap.violations;
+        // use a no-op handler to avoid recording a failing Issue.
+        let effectiveMode = modeOverride ?? Airgap.mode
+        if effectiveMode == .warn {
+            Airgap.violationHandler = { _ in }
+        } else {
+            Airgap.violationHandler = { Issue.record("\($0)") }
+        }
         if !additionalAllowedHosts.isEmpty {
             Airgap.allowedHosts = Airgap.allowedHosts.union(additionalAllowedHosts)
         }

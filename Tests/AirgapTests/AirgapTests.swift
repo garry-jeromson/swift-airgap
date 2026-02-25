@@ -246,11 +246,21 @@ final class AirgapTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
+        // Allow main queue to process the async dispatch from warn mode
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
 
-        // In warn mode, the violation is handled via XCTExpectFailure internally
-        // and does NOT call the custom violationHandler, so the violations array
-        // captured by our test handler should be empty.
-        XCTAssertEqual(capture.count, 0)
+        // Warn mode should call the configured violationHandler (wrapped in XCTExpectFailure)
+        XCTAssertEqual(capture.count, 1)
+    }
+
+    func testWarnModeCallsViolationHandlerDirectly() {
+        Airgap.mode = .warn
+
+        // Call reportViolation directly on the main thread to avoid async timing issues
+        Airgap.reportViolation(method: "GET", url: "https://example.com/warn-direct", callStack: [], testName: "test")
+
+        XCTAssertEqual(capture.count, 1, "Warn mode should call the configured violationHandler")
+        XCTAssertTrue(capture.messages[0].contains("warn-direct"))
     }
 
     func testFailModeCallsViolationHandlerDirectly() {
@@ -422,6 +432,20 @@ final class AirgapTests: XCTestCase {
         XCTAssertEqual(Airgap.reportPath, pathAfterFirst)
         XCTAssertEqual(Airgap.allowedHosts, hostsAfterFirst,
                        "Calling configureFromEnvironment twice should not duplicate hosts")
+    }
+
+    func testConfigureFromEnvironmentResetsModeWhenEnvVarAbsent() {
+        Airgap.mode = .warn
+        Airgap.configureFromEnvironment()
+        XCTAssertEqual(Airgap.mode, .fail,
+                       "configureFromEnvironment should reset mode to .fail when AIRGAP_MODE is not set")
+    }
+
+    func testConfigureFromEnvironmentResetsReportPathWhenEnvVarAbsent() {
+        Airgap.reportPath = "/some/path/report.txt"
+        Airgap.configureFromEnvironment()
+        XCTAssertNil(Airgap.reportPath,
+                     "configureFromEnvironment should reset reportPath when AIRGAP_REPORT_PATH is not set")
     }
 
     func testConfigureFromEnvironmentDoesNotAccumulateHosts() {
@@ -934,6 +958,60 @@ final class AirgapTests: XCTestCase {
 
     func testViolationSummaryReturnsNilWhenNoViolations() {
         XCTAssertNil(Airgap.violationSummary())
+    }
+
+    // MARK: - Violation model tests
+
+    func testViolationCodableRoundtrip() throws {
+        let original = Violation(
+            testName: "TestClass/testMethod",
+            httpMethod: "POST",
+            url: "https://example.com/api",
+            callStack: ["frame1", "frame2"],
+            timestamp: Date(timeIntervalSince1970: 1_000_000)
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Violation.self, from: data)
+        XCTAssertEqual(original, decoded)
+    }
+
+    func testViolationTimestampIsPopulated() {
+        let before = Date()
+        let violation = Violation(testName: "test", httpMethod: "GET", url: "https://example.com", callStack: [])
+        let after = Date()
+        XCTAssertGreaterThanOrEqual(violation.timestamp, before)
+        XCTAssertLessThanOrEqual(violation.timestamp, after)
+    }
+
+    // MARK: - IPv6 allowed hosts
+
+    func testIPv6AllowedHost() {
+        Airgap.allowedHosts = ["::1"]
+        Airgap.activate()
+
+        let url = URL(string: "https://[::1]/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "IPv6 loopback should be allowed when in allowedHosts")
+    }
+
+    // MARK: - Concurrent violation collection
+
+    func testConcurrentViolationsAreAllCollectedInViolationsArray() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "All requests complete")
+        expectation.expectedFulfillmentCount = 5
+
+        for i in 0..<5 {
+            let url = URL(string: "https://example.com/api/concurrent-violations/\(i)")!
+            URLSession.shared.dataTask(with: url) { _, _, _ in
+                expectation.fulfill()
+            }.resume()
+        }
+
+        wait(for: [expectation], timeout: 10.0)
+        XCTAssertEqual(Airgap.violations.count, 5,
+                       "All concurrent violations should be collected in the violations array")
     }
 
     func testViolationSummaryReturnsFormattedString() {

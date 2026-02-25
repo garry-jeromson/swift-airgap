@@ -32,16 +32,9 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
 
     /// Captured call stacks keyed by request URL string, for associating stack traces with violations.
     nonisolated(unsafe) private static var _capturedCallStacks: [String: [String]] = [:]
-    private static var capturedCallStacks: [String: [String]] {
-        get { lock.withLock { _capturedCallStacks } }
-        set { lock.withLock { _capturedCallStacks = newValue } }
-    }
 
     /// Captured request metadata keyed by URL string, for including body/header info in violations.
     nonisolated(unsafe) private static var _capturedRequests: [String: URLRequest] = [:]
-
-    /// Key used to mark requests as already handled, preventing infinite interception loops.
-    private static let handledKey = "AirgapHandled"
 
     // MARK: - URLProtocol overrides
 
@@ -56,11 +49,6 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
 
         // Allow requests to hosts in the allowlist
         if let host = request.url?.host, Airgap.isHostAllowed(host) {
-            return false
-        }
-
-        // Prevent re-interception of already-handled requests
-        guard URLProtocol.property(forKey: handledKey, in: request) == nil else {
             return false
         }
 

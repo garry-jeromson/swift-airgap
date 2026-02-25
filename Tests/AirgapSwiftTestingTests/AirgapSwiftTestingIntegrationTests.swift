@@ -399,6 +399,23 @@ struct AllAirgapSwiftTestingTests {
         }
     }
 
+    // MARK: - Warn mode with trait does not fail
+
+    @Suite(.airgapped(mode: .warn))
+    struct TraitWarnModeDoesNotFailTests {
+
+        @Test func warnModeViolationDoesNotFail() async throws {
+            let url = URL(string: "https://example.com/api/warn-trait-test")!
+            do {
+                _ = try await URLSession.shared.data(from: url)
+            } catch {
+                // Expected — blocked request delivers an error
+            }
+            // If this test passes, warn mode correctly doesn't fail the test
+            #expect(Airgap.violations.count >= 1, "Violation should be collected")
+        }
+    }
+
     // MARK: - Trait clears violations per-test
 
     @Suite(.serialized) struct TraitViolationClearingTests {
