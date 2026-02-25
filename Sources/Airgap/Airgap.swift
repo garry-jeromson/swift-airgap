@@ -85,12 +85,25 @@ public enum Airgap {
         AirgapURLProtocol.isAllowed = true
     }
 
-    /// Returns `true` if the given host is in the `allowedHosts` set.
+    /// Returns `true` if the given host matches any entry in `allowedHosts`.
+    ///
+    /// Supports exact matches and wildcard patterns:
+    /// - `"localhost"` — matches `localhost` exactly
+    /// - `"*.example.com"` — matches `api.example.com`, `deep.sub.example.com`, and `example.com` itself
+    ///
     /// Matching is case-insensitive per RFC 3986.
     static func isHostAllowed(_ host: String) -> Bool {
         let lowercased = host.lowercased()
         return lock.withLock {
-            _allowedHosts.contains { $0.lowercased() == lowercased }
+            _allowedHosts.contains { pattern in
+                let p = pattern.lowercased()
+                if p == lowercased { return true }
+                if p.hasPrefix("*.") {
+                    let domain = String(p.dropFirst(2))
+                    return lowercased.hasSuffix("." + domain) || lowercased == domain
+                }
+                return false
+            }
         }
     }
 

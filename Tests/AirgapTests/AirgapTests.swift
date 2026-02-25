@@ -502,6 +502,73 @@ final class AirgapTests: XCTestCase {
         XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)))
     }
 
+    // MARK: - Wildcard host matching
+
+    func testWildcardAllowedHostMatchesSubdomain() {
+        Airgap.allowedHosts = ["*.example.com"]
+        Airgap.activate()
+
+        let url = URL(string: "https://api.example.com/data")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "*.example.com should match api.example.com")
+    }
+
+    func testWildcardAllowedHostMatchesBaseDomain() {
+        Airgap.allowedHosts = ["*.example.com"]
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/data")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "*.example.com should also match example.com itself")
+    }
+
+    func testWildcardAllowedHostMatchesDeepSubdomain() {
+        Airgap.allowedHosts = ["*.example.com"]
+        Airgap.activate()
+
+        let url = URL(string: "https://deep.sub.example.com/data")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "*.example.com should match deep.sub.example.com")
+    }
+
+    func testWildcardAllowedHostDoesNotMatchDifferentDomain() {
+        Airgap.allowedHosts = ["*.example.com"]
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://notexample.com/data")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1, "*.example.com should not match notexample.com")
+    }
+
+    func testWildcardAllowedHostIsCaseInsensitive() {
+        Airgap.allowedHosts = ["*.Example.COM"]
+        Airgap.activate()
+
+        let url = URL(string: "https://api.example.com/data")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: url)),
+                       "Wildcard matching should be case-insensitive")
+    }
+
+    func testMixedExactAndWildcardHosts() {
+        Airgap.allowedHosts = ["localhost", "*.mock-server.local"]
+        Airgap.activate()
+
+        let localhostURL = URL(string: "https://localhost/api")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)))
+
+        let mockURL = URL(string: "https://api.mock-server.local/data")!
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: URLRequest(url: mockURL)))
+
+        let blockedURL = URL(string: "https://real-api.com/data")!
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: URLRequest(url: blockedURL)))
+    }
+
     // MARK: - Case-insensitive host matching
 
     func testAllowedHostsCaseInsensitive() {
