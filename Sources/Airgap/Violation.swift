@@ -1,6 +1,6 @@
 import Foundation
 
-/// Represents a single network violation detected by NetworkGuard.
+/// Represents a single network violation detected by Airgap.
 public struct Violation {
     public let testName: String
     public let httpMethod: String

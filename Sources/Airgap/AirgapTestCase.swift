@@ -5,19 +5,19 @@ import XCTest
 /// Inherit from this class instead of `XCTestCase` to block network access for all tests in the suite.
 ///
 /// To opt out a specific test or subclass that needs network access, override `setUp` and call
-/// `NetworkGuard.allowNetworkAccess()` after `super.setUp()`.
-open class NetworkGuardTestCase: XCTestCase {
+/// `Airgap.allowNetworkAccess()` after `super.setUp()`.
+open class AirgapTestCase: XCTestCase {
 
     override open func setUp() {
         super.setUp()
-        NetworkGuard.configureFromEnvironment()
-        NetworkGuardURLProtocol.currentTestName = name
-        NetworkGuard.activate()
+        Airgap.configureFromEnvironment()
+        AirgapURLProtocol.currentTestName = name
+        Airgap.activate()
     }
 
     override open func tearDown() {
-        NetworkGuard.writeReport()
-        NetworkGuard.deactivate()
+        Airgap.writeReport()
+        Airgap.deactivate()
         super.tearDown()
     }
 }

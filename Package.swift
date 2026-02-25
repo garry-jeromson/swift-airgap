@@ -3,15 +3,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "NetworkGuard",
+    name: "Airgap",
     platforms: [.iOS(.v16)],
     products: [
-        .library(name: "NetworkGuard", targets: ["NetworkGuard"]),
+        .library(name: "Airgap", targets: ["Airgap"]),
     ],
     targets: [
-        .target(name: "NetworkGuard", swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "NetworkGuardTests", dependencies: ["NetworkGuard"], swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "NetworkGuardXCTestIntegrationTests", dependencies: ["NetworkGuard"], swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "NetworkGuardSwiftTestingTests", dependencies: ["NetworkGuard"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "Airgap", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "AirgapTests", dependencies: ["Airgap"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "AirgapXCTestIntegrationTests", dependencies: ["Airgap"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "AirgapSwiftTestingTests", dependencies: ["Airgap"], swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

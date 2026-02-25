@@ -1,24 +1,24 @@
 import XCTest
-import NetworkGuard
+import Airgap
 
 // MARK: - Integration tests using the default XCTFail handler
 
 /// These tests verify the package from a consumer's perspective — confirming that
 /// network violations produce actual XCTest failures, and that allowed/inactive
 /// scenarios pass cleanly.
-final class NetworkGuardIntegrationTests: XCTestCase {
+final class AirgapIntegrationTests: XCTestCase {
 
     override func tearDown() {
-        NetworkGuard.deactivate()
+        Airgap.deactivate()
         super.tearDown()
     }
 
     // MARK: - Tests that should fail (wrapped in XCTExpectFailure)
 
     func testNetworkCallWithDefaultHandlerProducesXCTFailure() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
-        XCTExpectFailure("NetworkGuard should trigger XCTFail for blocked requests")
+        XCTExpectFailure("Airgap should trigger XCTFail for blocked requests")
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api")!
@@ -31,9 +31,9 @@ final class NetworkGuardIntegrationTests: XCTestCase {
     }
 
     func testCustomSessionDefaultConfigWithDefaultHandlerProducesXCTFailure() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
-        XCTExpectFailure("NetworkGuard should trigger XCTFail for custom session with .default config")
+        XCTExpectFailure("Airgap should trigger XCTFail for custom session with .default config")
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .default)
@@ -47,9 +47,9 @@ final class NetworkGuardIntegrationTests: XCTestCase {
     }
 
     func testCustomSessionEphemeralConfigWithDefaultHandlerProducesXCTFailure() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
-        XCTExpectFailure("NetworkGuard should trigger XCTFail for custom session with .ephemeral config")
+        XCTExpectFailure("Airgap should trigger XCTFail for custom session with .ephemeral config")
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .ephemeral)
@@ -65,30 +65,30 @@ final class NetworkGuardIntegrationTests: XCTestCase {
     // MARK: - Tests that should pass (no expected failure)
 
     func testAllowNetworkAccessPreventsXCTFailure() {
-        NetworkGuard.activate()
-        NetworkGuard.allowNetworkAccess()
+        Airgap.activate()
+        Airgap.allowNetworkAccess()
 
         // No XCTExpectFailure — this should genuinely pass without any failure.
         let url = URL(string: "https://example.com/api")!
         let request = URLRequest(url: url)
 
         // canInit returning false proves the request would not be intercepted.
-        XCTAssertFalse(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
     }
 
     func testDeactivatedGuardDoesNotProduceXCTFailure() {
-        NetworkGuard.activate()
-        NetworkGuard.deactivate()
+        Airgap.activate()
+        Airgap.deactivate()
 
         // No XCTExpectFailure — this should genuinely pass.
         let url = URL(string: "https://example.com/api")!
         let request = URLRequest(url: url)
 
-        XCTAssertFalse(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
     }
 
     func testFileURLDoesNotProduceXCTFailure() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         // No XCTExpectFailure — file:// should never trigger the guard.
         let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("networkguard-integration-test.txt")
@@ -106,14 +106,14 @@ final class NetworkGuardIntegrationTests: XCTestCase {
     }
 }
 
-// MARK: - NetworkGuardTestCase consumer integration tests
+// MARK: - AirgapTestCase consumer integration tests
 
-/// Simulates how a consumer would use NetworkGuardTestCase as their base class.
+/// Simulates how a consumer would use AirgapTestCase as their base class.
 /// Network calls should produce XCTFail via the inherited setUp/tearDown lifecycle.
-final class NetworkGuardTestCaseIntegrationTests: NetworkGuardTestCase {
+final class AirgapTestCaseIntegrationTests: AirgapTestCase {
 
     func testNetworkCallInTestCaseSubclassProducesXCTFailure() {
-        XCTExpectFailure("NetworkGuardTestCase should block network calls automatically")
+        XCTExpectFailure("AirgapTestCase should block network calls automatically")
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api")!
@@ -142,14 +142,14 @@ final class NetworkGuardTestCaseIntegrationTests: NetworkGuardTestCase {
     }
 }
 
-// MARK: - NetworkGuardTestCase with allowNetworkAccess opt-out
+// MARK: - AirgapTestCase with allowNetworkAccess opt-out
 
-/// Simulates a consumer who inherits NetworkGuardTestCase but opts out via allowNetworkAccess().
-final class NetworkGuardTestCaseOptOutIntegrationTests: NetworkGuardTestCase {
+/// Simulates a consumer who inherits AirgapTestCase but opts out via allowNetworkAccess().
+final class AirgapTestCaseOptOutIntegrationTests: AirgapTestCase {
 
     override func setUp() {
         super.setUp()
-        NetworkGuard.allowNetworkAccess()
+        Airgap.allowNetworkAccess()
     }
 
     func testOptedOutSuiteDoesNotProduceXCTFailure() {
@@ -157,45 +157,45 @@ final class NetworkGuardTestCaseOptOutIntegrationTests: NetworkGuardTestCase {
         let url = URL(string: "https://example.com/api")!
         let request = URLRequest(url: url)
 
-        XCTAssertFalse(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
     }
 }
 
-// MARK: - NetworkGuardObserver integration tests
+// MARK: - AirgapObserver integration tests
 
-/// Tests that NetworkGuardObserver correctly registers as an XCTestObservation observer
+/// Tests that AirgapObserver correctly registers as an XCTestObservation observer
 /// and activates/deactivates the guard via the bundle lifecycle callbacks.
-final class NetworkGuardObserverIntegrationTests: XCTestCase {
+final class AirgapObserverIntegrationTests: XCTestCase {
 
     override func tearDown() {
-        NetworkGuard.deactivate()
+        Airgap.deactivate()
         super.tearDown()
     }
 
     func testObserverActivatesGuardOnBundleWillStart() {
-        let observer = NetworkGuardObserver()
+        let observer = AirgapObserver()
 
         // Simulate the bundle lifecycle callback
         observer.testBundleWillStart(Bundle.main)
 
-        XCTAssertTrue(NetworkGuardURLProtocol.isActive)
+        XCTAssertTrue(AirgapURLProtocol.isActive)
     }
 
     func testObserverDeactivatesGuardOnBundleDidFinish() {
-        let observer = NetworkGuardObserver()
+        let observer = AirgapObserver()
 
         observer.testBundleWillStart(Bundle.main)
-        XCTAssertTrue(NetworkGuardURLProtocol.isActive)
+        XCTAssertTrue(AirgapURLProtocol.isActive)
 
         observer.testBundleDidFinish(Bundle.main)
-        XCTAssertFalse(NetworkGuardURLProtocol.isActive)
+        XCTAssertFalse(AirgapURLProtocol.isActive)
     }
 
     func testObserverBlocksNetworkCallsViaDefaultHandler() {
-        let observer = NetworkGuardObserver()
+        let observer = AirgapObserver()
         observer.testBundleWillStart(Bundle.main)
 
-        XCTExpectFailure("NetworkGuardObserver should block network calls after testBundleWillStart")
+        XCTExpectFailure("AirgapObserver should block network calls after testBundleWillStart")
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api")!
@@ -208,33 +208,33 @@ final class NetworkGuardObserverIntegrationTests: XCTestCase {
     }
 
     func testObserverAllowsOptOutViaAllowNetworkAccess() {
-        let observer = NetworkGuardObserver()
+        let observer = AirgapObserver()
         observer.testBundleWillStart(Bundle.main)
-        NetworkGuard.allowNetworkAccess()
+        Airgap.allowNetworkAccess()
 
         // No XCTExpectFailure — should pass cleanly.
         let url = URL(string: "https://example.com/api")!
         let request = URLRequest(url: url)
 
-        XCTAssertFalse(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
     }
 
     func testObserverResetsAllowFlagBetweenTests() {
-        let observer = NetworkGuardObserver()
+        let observer = AirgapObserver()
         observer.testBundleWillStart(Bundle.main)
 
         // Simulate a test that opts out
-        NetworkGuard.allowNetworkAccess()
-        XCTAssertTrue(NetworkGuardURLProtocol.isAllowed)
+        Airgap.allowNetworkAccess()
+        XCTAssertTrue(AirgapURLProtocol.isAllowed)
 
         // Simulate the next test starting — allow flag should be reset
         observer.testCaseWillStart(self)
-        XCTAssertFalse(NetworkGuardURLProtocol.isAllowed)
+        XCTAssertFalse(AirgapURLProtocol.isAllowed)
 
         // The guard should now block requests again
         let url = URL(string: "https://example.com/api")!
         let request = URLRequest(url: url)
-        XCTAssertTrue(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: request))
     }
 }
 
@@ -243,26 +243,26 @@ final class NetworkGuardObserverIntegrationTests: XCTestCase {
 /// These tests verify that warn mode does NOT fail the test — no XCTExpectFailure wrapper
 /// is needed because warn mode handles it internally via XCTExpectFailure.
 /// If warn mode is broken, these tests would fail with an unexpected XCTFail.
-final class NetworkGuardWarnModeIntegrationTests: XCTestCase {
+final class AirgapWarnModeIntegrationTests: XCTestCase {
 
-    private var originalMode: NetworkGuard.Mode!
+    private var originalMode: Airgap.Mode!
 
     override func setUp() {
         super.setUp()
-        originalMode = NetworkGuard.mode
-        NetworkGuard.mode = .warn
+        originalMode = Airgap.mode
+        Airgap.mode = .warn
     }
 
     override func tearDown() {
-        NetworkGuard.deactivate()
-        NetworkGuard.mode = originalMode
+        Airgap.deactivate()
+        Airgap.mode = originalMode
         super.tearDown()
     }
 
     func testWarnModeDoesNotFailTestWithDefaultHandler() {
         // No XCTExpectFailure here — warn mode should handle it internally.
         // If this test fails, warn mode is broken.
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/warn-integration")!
@@ -276,7 +276,7 @@ final class NetworkGuardWarnModeIntegrationTests: XCTestCase {
     }
 
     func testWarnModeWithCustomSessionDoesNotFailTest() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .default)
@@ -293,9 +293,9 @@ final class NetworkGuardWarnModeIntegrationTests: XCTestCase {
     func testWarnModeCollectsViolationsForReport() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-warn-integration-\(UUID().uuidString).txt").path
-        NetworkGuard.reportPath = tempPath
-        NetworkGuard.clearViolations()
-        NetworkGuard.activate()
+        Airgap.reportPath = tempPath
+        Airgap.clearViolations()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/warn-report")!
@@ -306,15 +306,15 @@ final class NetworkGuardWarnModeIntegrationTests: XCTestCase {
 
         wait(for: [expectation], timeout: 5.0)
 
-        NetworkGuard.writeReport()
+        Airgap.writeReport()
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempPath), "Report file should be created")
         let content = try? String(contentsOfFile: tempPath, encoding: .utf8)
         XCTAssertTrue(content?.contains("warn-report") ?? false, "Report should contain the URL")
 
         // Cleanup
-        NetworkGuard.reportPath = nil
-        NetworkGuard.clearViolations()
+        Airgap.reportPath = nil
+        Airgap.clearViolations()
         try? FileManager.default.removeItem(atPath: tempPath)
     }
 }

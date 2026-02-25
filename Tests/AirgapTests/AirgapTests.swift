@@ -1,61 +1,61 @@
 import XCTest
-@testable import NetworkGuard
+@testable import Airgap
 
-final class NetworkGuardTests: XCTestCase {
+final class AirgapTests: XCTestCase {
 
     private var violations: [String] = []
     private var originalHandler: ((String) -> Void)!
-    private var originalMode: NetworkGuard.Mode!
+    private var originalMode: Airgap.Mode!
     private var originalReportPath: String?
 
     override func setUp() {
         super.setUp()
         violations = []
-        originalHandler = NetworkGuard.violationHandler
-        originalMode = NetworkGuard.mode
-        originalReportPath = NetworkGuard.reportPath
+        originalHandler = Airgap.violationHandler
+        originalMode = Airgap.mode
+        originalReportPath = Airgap.reportPath
 
-        NetworkGuard.violationHandler = { [unowned self] message in
+        Airgap.violationHandler = { [unowned self] message in
             self.violations.append(message)
         }
-        NetworkGuard.mode = .fail
-        NetworkGuard.reportPath = nil
-        NetworkGuard.clearViolations()
+        Airgap.mode = .fail
+        Airgap.reportPath = nil
+        Airgap.clearViolations()
     }
 
     override func tearDown() {
-        NetworkGuard.deactivate()
-        NetworkGuard.violationHandler = originalHandler
-        NetworkGuard.mode = originalMode
-        NetworkGuard.reportPath = originalReportPath
-        NetworkGuard.clearViolations()
+        Airgap.deactivate()
+        Airgap.violationHandler = originalHandler
+        Airgap.mode = originalMode
+        Airgap.reportPath = originalReportPath
+        Airgap.clearViolations()
         super.tearDown()
     }
 
     // MARK: - Activation / Deactivation
 
     func testActivateRegistersProtocol() {
-        NetworkGuard.activate()
-        XCTAssertTrue(NetworkGuardURLProtocol.isActive)
+        Airgap.activate()
+        XCTAssertTrue(AirgapURLProtocol.isActive)
     }
 
     func testDeactivateUnregistersProtocol() {
-        NetworkGuard.activate()
-        NetworkGuard.deactivate()
-        XCTAssertFalse(NetworkGuardURLProtocol.isActive)
+        Airgap.activate()
+        Airgap.deactivate()
+        XCTAssertFalse(AirgapURLProtocol.isActive)
     }
 
     func testDoubleActivateIsIdempotent() {
-        NetworkGuard.activate()
-        NetworkGuard.activate()
-        XCTAssertTrue(NetworkGuardURLProtocol.isActive)
+        Airgap.activate()
+        Airgap.activate()
+        XCTAssertTrue(AirgapURLProtocol.isActive)
         // No crash = success
     }
 
     // MARK: - Blocking requests
 
     func testURLSessionSharedDataTaskIsBlocked() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://httpbin.org/get")!
@@ -70,7 +70,7 @@ final class NetworkGuardTests: XCTestCase {
     }
 
     func testURLSessionSharedAsyncDataIsBlocked() async {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let url = URL(string: "https://httpbin.org/get")!
 
@@ -85,7 +85,7 @@ final class NetworkGuardTests: XCTestCase {
     }
 
     func testURLSessionWithDefaultConfigIsBlocked() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let config = URLSessionConfiguration.default
@@ -102,7 +102,7 @@ final class NetworkGuardTests: XCTestCase {
     }
 
     func testURLSessionWithEphemeralConfigIsBlocked() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let config = URLSessionConfiguration.ephemeral
@@ -119,7 +119,7 @@ final class NetworkGuardTests: XCTestCase {
     }
 
     func testHTTPSchemeIsBlocked() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "http://httpbin.org/get")!
@@ -136,7 +136,7 @@ final class NetworkGuardTests: XCTestCase {
     // MARK: - Non-HTTP schemes
 
     func testLocalFileURLIsNotBlocked() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("networkguard-test.txt")
         try? "test".write(to: tempFile, atomically: true, encoding: .utf8)
@@ -162,14 +162,14 @@ final class NetworkGuardTests: XCTestCase {
         let url = URL(string: "https://httpbin.org/get")!
         let request = URLRequest(url: url)
 
-        XCTAssertFalse(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
         XCTAssertTrue(violations.isEmpty)
     }
 
     // MARK: - Violation message
 
     func testViolationMessageContainsURLAndGuidance() {
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/test")!
@@ -190,48 +190,48 @@ final class NetworkGuardTests: XCTestCase {
     // MARK: - Allow network access
 
     func testAllowNetworkAccessDisablesGuard() {
-        NetworkGuard.activate()
-        NetworkGuard.allowNetworkAccess()
+        Airgap.activate()
+        Airgap.allowNetworkAccess()
 
         let url = URL(string: "https://httpbin.org/get")!
         let request = URLRequest(url: url)
 
-        XCTAssertFalse(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
         XCTAssertTrue(violations.isEmpty)
     }
 
     func testActivateResetsAllowFlag() {
-        NetworkGuard.activate()
-        NetworkGuard.allowNetworkAccess()
+        Airgap.activate()
+        Airgap.allowNetworkAccess()
 
         // Re-activate should reset the allow flag
-        NetworkGuard.activate()
+        Airgap.activate()
 
         let url = URL(string: "https://httpbin.org/get")!
         let request = URLRequest(url: url)
 
-        XCTAssertTrue(NetworkGuardURLProtocol.canInit(with: request))
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: request))
     }
 
-    // MARK: - NetworkGuardTestCase lifecycle
+    // MARK: - AirgapTestCase lifecycle
 
-    func testNetworkGuardTestCaseLifecycle() {
+    func testAirgapTestCaseLifecycle() {
         let testCase = LifecycleTestCase()
 
         // Simulate setUp
         testCase.invokeSetUp()
-        XCTAssertTrue(NetworkGuardURLProtocol.isActive)
+        XCTAssertTrue(AirgapURLProtocol.isActive)
 
         // Simulate tearDown
         testCase.invokeTearDown()
-        XCTAssertFalse(NetworkGuardURLProtocol.isActive)
+        XCTAssertFalse(AirgapURLProtocol.isActive)
     }
 
     // MARK: - Warning mode
 
     func testWarnModeDoesNotFailTest() {
-        NetworkGuard.mode = .warn
-        NetworkGuard.activate()
+        Airgap.mode = .warn
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/warn-test")!
@@ -249,8 +249,8 @@ final class NetworkGuardTests: XCTestCase {
     }
 
     func testFailModeCallsViolationHandlerDirectly() {
-        NetworkGuard.mode = .fail
-        NetworkGuard.activate()
+        Airgap.mode = .fail
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/fail-test")!
@@ -269,8 +269,8 @@ final class NetworkGuardTests: XCTestCase {
     func testViolationsCollectedWhenReportPathSet() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-test-\(UUID().uuidString).txt").path
-        NetworkGuard.reportPath = tempPath
-        NetworkGuard.activate()
+        Airgap.reportPath = tempPath
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/collect-test")!
@@ -280,17 +280,17 @@ final class NetworkGuardTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertEqual(NetworkGuard.violations.count, 1)
-        XCTAssertEqual(NetworkGuard.violations[0].url, "https://example.com/api/collect-test")
-        XCTAssertEqual(NetworkGuard.violations[0].httpMethod, "GET")
+        XCTAssertEqual(Airgap.violations.count, 1)
+        XCTAssertEqual(Airgap.violations[0].url, "https://example.com/api/collect-test")
+        XCTAssertEqual(Airgap.violations[0].httpMethod, "GET")
 
         // Cleanup
         try? FileManager.default.removeItem(atPath: tempPath)
     }
 
     func testViolationsNotCollectedWhenReportPathNil() {
-        NetworkGuard.reportPath = nil
-        NetworkGuard.activate()
+        Airgap.reportPath = nil
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/no-collect-test")!
@@ -300,7 +300,7 @@ final class NetworkGuardTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertTrue(NetworkGuard.violations.isEmpty)
+        XCTAssertTrue(Airgap.violations.isEmpty)
     }
 
     // MARK: - Report writing
@@ -308,8 +308,8 @@ final class NetworkGuardTests: XCTestCase {
     func testWriteReportCreatesFile() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-report-\(UUID().uuidString).txt").path
-        NetworkGuard.reportPath = tempPath
-        NetworkGuard.activate()
+        Airgap.reportPath = tempPath
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/report-test")!
@@ -320,7 +320,7 @@ final class NetworkGuardTests: XCTestCase {
 
         wait(for: [expectation], timeout: 5.0)
 
-        NetworkGuard.writeReport()
+        Airgap.writeReport()
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempPath))
 
@@ -331,9 +331,9 @@ final class NetworkGuardTests: XCTestCase {
     func testReportContainsMethodAndURL() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-report-content-\(UUID().uuidString).txt").path
-        NetworkGuard.reportPath = tempPath
-        NetworkGuardURLProtocol.currentTestName = "-[NetworkGuardTests testReportContainsMethodAndURL]"
-        NetworkGuard.activate()
+        Airgap.reportPath = tempPath
+        AirgapURLProtocol.currentTestName = "-[AirgapTests testReportContainsMethodAndURL]"
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/report-content")!
@@ -344,13 +344,13 @@ final class NetworkGuardTests: XCTestCase {
 
         wait(for: [expectation], timeout: 5.0)
 
-        NetworkGuard.writeReport()
+        Airgap.writeReport()
 
         let content = try? String(contentsOfFile: tempPath, encoding: .utf8)
         XCTAssertNotNil(content)
         XCTAssertTrue(content?.contains("Method: GET") ?? false)
         XCTAssertTrue(content?.contains("URL: https://example.com/api/report-content") ?? false)
-        XCTAssertTrue(content?.contains("Test: -[NetworkGuardTests testReportContainsMethodAndURL]") ?? false)
+        XCTAssertTrue(content?.contains("Test: -[AirgapTests testReportContainsMethodAndURL]") ?? false)
         XCTAssertTrue(content?.contains("Call Stack:") ?? false)
         XCTAssertTrue(content?.contains("Total violations:") ?? false)
 
@@ -363,8 +363,8 @@ final class NetworkGuardTests: XCTestCase {
     func testClearViolationsResetsCollection() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-clear-\(UUID().uuidString).txt").path
-        NetworkGuard.reportPath = tempPath
-        NetworkGuard.activate()
+        Airgap.reportPath = tempPath
+        Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let url = URL(string: "https://example.com/api/clear-test")!
@@ -374,10 +374,10 @@ final class NetworkGuardTests: XCTestCase {
         }.resume()
 
         wait(for: [expectation], timeout: 5.0)
-        XCTAssertFalse(NetworkGuard.violations.isEmpty)
+        XCTAssertFalse(Airgap.violations.isEmpty)
 
-        NetworkGuard.clearViolations()
-        XCTAssertTrue(NetworkGuard.violations.isEmpty)
+        Airgap.clearViolations()
+        XCTAssertTrue(Airgap.violations.isEmpty)
 
         // Cleanup
         try? FileManager.default.removeItem(atPath: tempPath)
@@ -386,19 +386,19 @@ final class NetworkGuardTests: XCTestCase {
     // MARK: - Mode is not reset by activate
 
     func testActivateDoesNotResetMode() {
-        NetworkGuard.mode = .warn
-        NetworkGuard.activate()
-        XCTAssertEqual(NetworkGuard.mode, .warn)
+        Airgap.mode = .warn
+        Airgap.activate()
+        XCTAssertEqual(Airgap.mode, .warn)
 
-        NetworkGuard.activate()
-        XCTAssertEqual(NetworkGuard.mode, .warn)
+        Airgap.activate()
+        XCTAssertEqual(Airgap.mode, .warn)
     }
 }
 
 // MARK: - Helpers
 
-/// A concrete subclass of NetworkGuardTestCase for testing the lifecycle methods.
-private final class LifecycleTestCase: NetworkGuardTestCase {
+/// A concrete subclass of AirgapTestCase for testing the lifecycle methods.
+private final class LifecycleTestCase: AirgapTestCase {
 
     func invokeSetUp() {
         setUp()

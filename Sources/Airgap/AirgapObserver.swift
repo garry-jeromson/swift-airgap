@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-/// An XCTestObservation observer that activates NetworkGuard before any test runs.
+/// An XCTestObservation observer that activates Airgap before any test runs.
 ///
 /// ## Usage with Xcode test bundles (NSPrincipalClass)
 ///
@@ -11,23 +11,23 @@ import XCTest
 /// **Option A** — Info.plist:
 /// ```xml
 /// <key>NSPrincipalClass</key>
-/// <string>NetworkGuardObserver</string>
+/// <string>AirgapObserver</string>
 /// ```
 ///
 /// **Option B** — Build setting:
-/// Set `INFOPLIST_KEY_NSPrincipalClass` to `NetworkGuardObserver` in the test target.
+/// Set `INFOPLIST_KEY_NSPrincipalClass` to `AirgapObserver` in the test target.
 ///
 /// ## How it works
 ///
 /// 1. The test runner instantiates this class when the bundle loads.
 /// 2. `init()` registers the instance as a test observer with `XCTestObservationCenter`.
-/// 3. `testBundleWillStart(_:)` calls `NetworkGuard.activate()` once, before any test runs.
+/// 3. `testBundleWillStart(_:)` calls `Airgap.activate()` once, before any test runs.
 /// 4. `testCaseWillStart(_:)` resets the allow flag before each test, so a previous test's
 ///    `allowNetworkAccess()` call does not leak into subsequent tests.
 ///
-/// Individual tests that need real network access call `NetworkGuard.allowNetworkAccess()`.
-@objc(NetworkGuardObserver)
-open class NetworkGuardObserver: NSObject, XCTestObservation {
+/// Individual tests that need real network access call `Airgap.allowNetworkAccess()`.
+@objc(AirgapObserver)
+open class AirgapObserver: NSObject, XCTestObservation {
 
     override public init() {
         super.init()
@@ -35,17 +35,17 @@ open class NetworkGuardObserver: NSObject, XCTestObservation {
     }
 
     open func testBundleWillStart(_ testBundle: Bundle) {
-        NetworkGuard.configureFromEnvironment()
-        NetworkGuard.activate()
+        Airgap.configureFromEnvironment()
+        Airgap.activate()
     }
 
     public func testCaseWillStart(_ testCase: XCTestCase) {
-        NetworkGuardURLProtocol.isAllowed = false
-        NetworkGuardURLProtocol.currentTestName = testCase.name
+        AirgapURLProtocol.isAllowed = false
+        AirgapURLProtocol.currentTestName = testCase.name
     }
 
     public func testBundleDidFinish(_ testBundle: Bundle) {
-        NetworkGuard.writeReport()
-        NetworkGuard.deactivate()
+        Airgap.writeReport()
+        Airgap.deactivate()
     }
 }

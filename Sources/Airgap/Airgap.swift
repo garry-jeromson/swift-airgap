@@ -7,7 +7,7 @@ import XCTest
 ///
 /// Supports activation at the test-target, suite, or individual-test level.
 /// Tests that legitimately need network access can opt out via `allowNetworkAccess()`.
-public enum NetworkGuard {
+public enum Airgap {
 
     /// Controls how violations are reported.
     public enum Mode {
@@ -46,9 +46,9 @@ public enum NetworkGuard {
     ///
     /// Safe to call multiple times — activation is idempotent.
     public static func activate() {
-        NetworkGuardURLProtocol.isActive = true
-        NetworkGuardURLProtocol.isAllowed = false
-        URLProtocol.registerClass(NetworkGuardURLProtocol.self)
+        AirgapURLProtocol.isActive = true
+        AirgapURLProtocol.isAllowed = false
+        URLProtocol.registerClass(AirgapURLProtocol.self)
 
         if !hasSwizzled {
             swizzleSessionConfigurations()
@@ -58,15 +58,15 @@ public enum NetworkGuard {
 
     /// Deactivates the network guard. Unregisters the URLProtocol.
     public static func deactivate() {
-        NetworkGuardURLProtocol.isActive = false
-        URLProtocol.unregisterClass(NetworkGuardURLProtocol.self)
+        AirgapURLProtocol.isActive = false
+        URLProtocol.unregisterClass(AirgapURLProtocol.self)
     }
 
     /// Disables the guard for the remainder of the current test.
     ///
     /// The guard is re-activated automatically on the next `activate()` call.
     public static func allowNetworkAccess() {
-        NetworkGuardURLProtocol.isAllowed = true
+        AirgapURLProtocol.isAllowed = true
     }
 
     /// Resets the collected violations list.
@@ -78,14 +78,14 @@ public enum NetworkGuard {
 
     /// Reads environment variables to configure mode and report path.
     ///
-    /// - `NETWORK_GUARD_MODE=warn` sets `mode = .warn`
-    /// - `NETWORK_GUARD_REPORT_PATH=/path` sets `reportPath`
+    /// - `AIRGAP_MODE=warn` sets `mode = .warn`
+    /// - `AIRGAP_REPORT_PATH=/path` sets `reportPath`
     public static func configureFromEnvironment() {
-        if let modeValue = ProcessInfo.processInfo.environment["NETWORK_GUARD_MODE"],
+        if let modeValue = ProcessInfo.processInfo.environment["AIRGAP_MODE"],
            modeValue.lowercased() == "warn" {
             mode = .warn
         }
-        if let path = ProcessInfo.processInfo.environment["NETWORK_GUARD_REPORT_PATH"],
+        if let path = ProcessInfo.processInfo.environment["AIRGAP_REPORT_PATH"],
            !path.isEmpty {
             reportPath = path
         }
@@ -94,7 +94,7 @@ public enum NetworkGuard {
     /// Reports a network violation through the configured handler.
     static func reportViolation(method: String, url: String, callStack: [String], testName: String) {
         let message = """
-        NetworkGuard: Blocked \(method) request to \(url). \
+        Airgap: Blocked \(method) request to \(url). \
         Tests must not make real network calls. \
         Use a mock or stub instead.
         """
@@ -120,7 +120,7 @@ public enum NetworkGuard {
             // called on com.apple.CFNetwork.CustomProtocols which would crash.
             #if canImport(XCTest)
             let work = {
-                XCTExpectFailure("NetworkGuard violation (warning mode)") {
+                XCTExpectFailure("Airgap violation (warning mode)") {
                     XCTFail(message)
                 }
             }
@@ -151,7 +151,7 @@ public enum NetworkGuard {
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
         var report = """
-        NetworkGuard Violation Report
+        Airgap Violation Report
         Generated: \(dateFormatter.string(from: Date()))
         Total violations: \(currentViolations.count)
         """
@@ -175,7 +175,7 @@ public enum NetworkGuard {
     // MARK: - Configuration swizzling
 
     /// Swizzles `URLSessionConfiguration.default` and `.ephemeral` property getters
-    /// to inject `NetworkGuardURLProtocol` into any newly-created session configuration.
+    /// to inject `AirgapURLProtocol` into any newly-created session configuration.
     private static func swizzleSessionConfigurations() {
         swizzleConfigurationProperty(
             getter: #selector(getter: URLSessionConfiguration.`default`),
@@ -201,8 +201,8 @@ public enum NetworkGuard {
         let swizzledBlock: @convention(block) (AnyObject) -> URLSessionConfiguration = { obj in
             let config = originalFunction(obj, original)
             var protocols = config.protocolClasses ?? []
-            if !protocols.contains(where: { $0 == NetworkGuardURLProtocol.self }) {
-                protocols.insert(NetworkGuardURLProtocol.self, at: 0)
+            if !protocols.contains(where: { $0 == AirgapURLProtocol.self }) {
+                protocols.insert(AirgapURLProtocol.self, at: 0)
             }
             config.protocolClasses = protocols
             return config

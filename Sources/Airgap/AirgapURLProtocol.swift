@@ -5,7 +5,7 @@ import Foundation
 /// This protocol is registered via `URLProtocol.registerClass()` to catch `URLSession.shared` usage,
 /// and injected into `URLSessionConfiguration.default` and `.ephemeral` via swizzling to catch
 /// custom session configurations.
-public final class NetworkGuardURLProtocol: URLProtocol {
+public final class AirgapURLProtocol: URLProtocol {
 
     // MARK: - Thread-safe state
 
@@ -38,7 +38,7 @@ public final class NetworkGuardURLProtocol: URLProtocol {
     }
 
     /// Key used to mark requests as already handled, preventing infinite interception loops.
-    private static let handledKey = "NetworkGuardHandled"
+    private static let handledKey = "AirgapHandled"
 
     // MARK: - URLProtocol overrides
 
@@ -84,14 +84,14 @@ public final class NetworkGuardURLProtocol: URLProtocol {
             callStack = Thread.callStackSymbols
         }
 
-        NetworkGuard.reportViolation(method: method, url: url, callStack: callStack, testName: testName)
+        Airgap.reportViolation(method: method, url: url, callStack: callStack, testName: testName)
 
         // Deliver an error so the code under test receives a failure rather than hanging.
         let error = NSError(
             domain: NSURLErrorDomain,
             code: NSURLErrorNotConnectedToInternet,
             userInfo: [
-                NSLocalizedDescriptionKey: "NetworkGuard: Network access is not allowed during tests.",
+                NSLocalizedDescriptionKey: "Airgap: Network access is not allowed during tests.",
             ]
         )
         client?.urlProtocol(self, didFailWithError: error)

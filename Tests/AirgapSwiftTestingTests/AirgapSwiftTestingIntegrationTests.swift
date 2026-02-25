@@ -1,12 +1,12 @@
 import Testing
-import NetworkGuard
+import Airgap
 import Foundation
 
 /// All Swift Testing integration tests are nested under a single serialized parent suite
-/// because NetworkGuard uses static state (violationHandler, isActive) that would race
+/// because Airgap uses static state (violationHandler, isActive) that would race
 /// if child suites ran in parallel.
 @Suite(.serialized)
-struct AllNetworkGuardSwiftTestingTests {
+struct AllAirgapSwiftTestingTests {
 
     // MARK: - Manual activation integration tests
 
@@ -14,9 +14,9 @@ struct AllNetworkGuardSwiftTestingTests {
 
         @Test func sharedSessionRequestIsBlocked() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            defer { Airgap.deactivate() }
 
             let url = URL(string: "https://example.com/api")!
             let semaphore = DispatchSemaphore(value: 0)
@@ -34,9 +34,9 @@ struct AllNetworkGuardSwiftTestingTests {
 
         @Test func customSessionWithDefaultConfigIsBlocked() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            defer { Airgap.deactivate() }
 
             let url = URL(string: "https://example.com/api")!
             let session = URLSession(configuration: .default)
@@ -52,9 +52,9 @@ struct AllNetworkGuardSwiftTestingTests {
 
         @Test func customSessionWithEphemeralConfigIsBlocked() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            defer { Airgap.deactivate() }
 
             let url = URL(string: "https://example.com/api")!
             let session = URLSession(configuration: .ephemeral)
@@ -70,9 +70,9 @@ struct AllNetworkGuardSwiftTestingTests {
 
         @Test func violationMessageContainsURLAndGuidance() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            defer { Airgap.deactivate() }
 
             let url = URL(string: "https://example.com/api/test")!
             let semaphore = DispatchSemaphore(value: 0)
@@ -90,9 +90,9 @@ struct AllNetworkGuardSwiftTestingTests {
 
         @Test func fileURLIsNotBlocked() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            defer { Airgap.deactivate() }
 
             let tempFile = FileManager.default.temporaryDirectory
                 .appendingPathComponent("networkguard-swift-testing-test.txt")
@@ -111,99 +111,99 @@ struct AllNetworkGuardSwiftTestingTests {
 
         @Test func allowNetworkAccessPreventsBlocking() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            NetworkGuard.allowNetworkAccess()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            Airgap.allowNetworkAccess()
+            defer { Airgap.deactivate() }
 
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == false)
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
             #expect(capture.isEmpty)
         }
 
         @Test func deactivatedGuardDoesNotBlock() {
             let capture = ViolationCapture()
-            NetworkGuard.violationHandler = { capture.record($0) }
-            NetworkGuard.activate()
-            NetworkGuard.deactivate()
+            Airgap.violationHandler = { capture.record($0) }
+            Airgap.activate()
+            Airgap.deactivate()
 
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == false)
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
             #expect(capture.isEmpty)
         }
 
         @Test func issueRecordHandlerPatternCompiles() {
-            NetworkGuard.violationHandler = { Issue.record("\($0)") }
-            NetworkGuard.activate()
-            defer { NetworkGuard.deactivate() }
+            Airgap.violationHandler = { Issue.record("\($0)") }
+            Airgap.activate()
+            defer { Airgap.deactivate() }
 
             withKnownIssue("Direct handler call should record an issue") {
-                NetworkGuard.violationHandler("test violation from handler")
+                Airgap.violationHandler("test violation from handler")
             }
         }
     }
 
-    // MARK: - NetworkGuardTrait integration tests
+    // MARK: - AirgapTrait integration tests
 
-    @Suite(.networkGuarded)
+    @Suite(.airgapped)
     struct TraitSuiteLevelTests {
 
         @Test func traitBlocksNetworkRequests() {
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == true)
+            #expect(AirgapURLProtocol.canInit(with: request) == true)
         }
 
         @Test func traitAllowsOptOut() {
-            NetworkGuard.allowNetworkAccess()
+            Airgap.allowNetworkAccess()
 
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == false)
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
         }
 
         @Test func traitDoesNotBlockFileURLs() {
             let fileURL = URL(fileURLWithPath: "/tmp/networkguard-trait-test.txt")
             let request = URLRequest(url: fileURL)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == false)
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
         }
     }
 
     @Suite struct TraitPerTestTests {
 
-        @Test(.networkGuarded) func guardedTestBlocksRequests() {
+        @Test(.airgapped) func guardedTestBlocksRequests() {
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == true)
+            #expect(AirgapURLProtocol.canInit(with: request) == true)
         }
 
         @Test func unguardedTestDoesNotBlock() {
-            NetworkGuard.deactivate()
+            Airgap.deactivate()
 
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == false)
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
         }
     }
 
     @Suite struct TraitAbsenceTests {
 
         @Test func unguardedSuiteDoesNotBlock() {
-            NetworkGuard.deactivate()
+            Airgap.deactivate()
 
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
-            #expect(NetworkGuardURLProtocol.canInit(with: request) == false)
+            #expect(AirgapURLProtocol.canInit(with: request) == false)
         }
     }
 }

@@ -3,13 +3,13 @@ import Foundation
 #if canImport(Testing)
 import Testing
 
-/// A Swift Testing trait that activates NetworkGuard for the duration of a test or suite.
+/// A Swift Testing trait that activates Airgap for the duration of a test or suite.
 ///
 /// ## Usage
 ///
 /// Apply to an entire suite:
 /// ```swift
-/// @Suite(.networkGuarded)
+/// @Suite(.airgapped)
 /// struct MyFeatureTests {
 ///     @Test func fetchData() async throws {
 ///         // Any HTTP/HTTPS request here will record an Issue
@@ -19,17 +19,17 @@ import Testing
 ///
 /// Apply to an individual test:
 /// ```swift
-/// @Test(.networkGuarded)
+/// @Test(.airgapped)
 /// func fetchData() async throws { ... }
 /// ```
 ///
 /// ## Opting out individual tests
 ///
-/// Within a guarded suite, call `NetworkGuard.allowNetworkAccess()` at the start of
+/// Within a guarded suite, call `Airgap.allowNetworkAccess()` at the start of
 /// any test that legitimately needs network access:
 /// ```swift
 /// @Test func integrationTest() async throws {
-///     NetworkGuard.allowNetworkAccess()
+///     Airgap.allowNetworkAccess()
 ///     // Real network calls are allowed here
 /// }
 /// ```
@@ -38,20 +38,20 @@ import Testing
 ///
 /// Violations are reported via `Issue.record()` automatically.
 @available(iOS 16.0, *)
-public struct NetworkGuardTrait: TestTrait, SuiteTrait, TestScoping {
+public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
 
     public func provideScope(
         for test: Test,
         testCase: Test.Case?,
         performing function: @Sendable () async throws -> Void
     ) async throws {
-        let previousHandler = NetworkGuard.violationHandler
-        NetworkGuard.violationHandler = { Issue.record("\($0)") }
-        NetworkGuard.activate()
+        let previousHandler = Airgap.violationHandler
+        Airgap.violationHandler = { Issue.record("\($0)") }
+        Airgap.activate()
 
         defer {
-            NetworkGuard.deactivate()
-            NetworkGuard.violationHandler = previousHandler
+            Airgap.deactivate()
+            Airgap.violationHandler = previousHandler
         }
 
         try await function()
@@ -59,8 +59,8 @@ public struct NetworkGuardTrait: TestTrait, SuiteTrait, TestScoping {
 }
 
 @available(iOS 16.0, *)
-extension Trait where Self == NetworkGuardTrait {
-    /// Activates NetworkGuard for the duration of the test or suite.
-    public static var networkGuarded: Self { Self() }
+extension Trait where Self == AirgapTrait {
+    /// Activates Airgap for the duration of the test or suite.
+    public static var airgapped: Self { Self() }
 }
 #endif
