@@ -134,7 +134,9 @@ public enum Airgap {
     ///
     /// - `AIRGAP_MODE=warn` sets `mode = .warn`
     /// - `AIRGAP_REPORT_PATH=/path` sets `reportPath`
-    /// - `AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1` adds hosts to `allowedHosts`
+    /// - `AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1` sets `allowedHosts`
+    ///
+    /// Safe to call multiple times — each call resets configuration from the environment.
     public static func configureFromEnvironment() {
         if let modeValue = ProcessInfo.processInfo.environment["AIRGAP_MODE"],
            modeValue.lowercased() == "warn" {
@@ -149,7 +151,9 @@ public enum Airgap {
             let hosts = hostsValue.split(separator: ",").map {
                 $0.trimmingCharacters(in: .whitespaces)
             }
-            allowedHosts.formUnion(hosts)
+            allowedHosts = Set(hosts)
+        } else {
+            allowedHosts = []
         }
     }
 
@@ -198,11 +202,6 @@ public enum Airgap {
             violationHandler(message)
             #endif
         }
-    }
-
-    /// Legacy report method for backward compatibility.
-    static func reportViolation(message: String) {
-        violationHandler(message)
     }
 
     /// Writes collected violations to the configured `reportPath`.

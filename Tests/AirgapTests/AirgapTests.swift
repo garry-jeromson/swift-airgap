@@ -415,10 +415,64 @@ final class AirgapTests: XCTestCase {
         Airgap.configureFromEnvironment()
         let modeAfterFirst = Airgap.mode
         let pathAfterFirst = Airgap.reportPath
+        let hostsAfterFirst = Airgap.allowedHosts
 
         Airgap.configureFromEnvironment()
         XCTAssertEqual(Airgap.mode, modeAfterFirst)
         XCTAssertEqual(Airgap.reportPath, pathAfterFirst)
+        XCTAssertEqual(Airgap.allowedHosts, hostsAfterFirst,
+                       "Calling configureFromEnvironment twice should not duplicate hosts")
+    }
+
+    func testConfigureFromEnvironmentDoesNotAccumulateHosts() {
+        // Simulate: a test adds a host, then configureFromEnvironment is called again
+        // It should not keep the manually-added host if it wasn't in the env var
+        Airgap.allowedHosts = ["manually-added.com"]
+        Airgap.configureFromEnvironment()
+        // Without AIRGAP_ALLOWED_HOSTS set, allowedHosts should be reset to empty
+        // (env config should be the source of truth, not accumulate on top of manual changes)
+        XCTAssertFalse(Airgap.allowedHosts.contains("manually-added.com"),
+                       "configureFromEnvironment should assign hosts, not union them")
+    }
+
+    // MARK: - currentTestName management
+
+    func testCurrentTestNameIsRestorable() {
+        // Verify that saving and restoring currentTestName works correctly,
+        // as provideScope should do for nested trait scopes
+        let original = AirgapURLProtocol.currentTestName
+        AirgapURLProtocol.currentTestName = "OuterScope/testOuter"
+
+        let saved = AirgapURLProtocol.currentTestName
+        AirgapURLProtocol.currentTestName = "InnerScope/testInner"
+        XCTAssertEqual(AirgapURLProtocol.currentTestName, "InnerScope/testInner")
+
+        // Restore
+        AirgapURLProtocol.currentTestName = saved
+        XCTAssertEqual(AirgapURLProtocol.currentTestName, "OuterScope/testOuter",
+                       "currentTestName should be restored after inner scope ends")
+
+        AirgapURLProtocol.currentTestName = original
+    }
+
+    // MARK: - Violation testName attribution
+
+    func testViolationContainsCorrectTestName() {
+        AirgapURLProtocol.currentTestName = "MyTests/testSomething"
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/attribution")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(Airgap.violations.count, 1)
+        XCTAssertEqual(Airgap.violations[0].testName, "MyTests/testSomething",
+                       "Violation should be attributed to the correct test name")
     }
 
     // MARK: - Deactivate does not clear violations

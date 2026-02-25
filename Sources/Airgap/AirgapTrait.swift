@@ -60,10 +60,12 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         let previousHandler = Airgap.violationHandler
         let previousAllowedHosts = Airgap.allowedHosts
         let previousMode = Airgap.mode
+        let previousTestName = AirgapURLProtocol.currentTestName
 
+        Airgap.configureFromEnvironment()
         Airgap.violationHandler = { Issue.record("\($0)") }
         if !additionalAllowedHosts.isEmpty {
-            Airgap.allowedHosts = previousAllowedHosts.union(additionalAllowedHosts)
+            Airgap.allowedHosts = Airgap.allowedHosts.union(additionalAllowedHosts)
         }
         if let modeOverride {
             Airgap.mode = modeOverride
@@ -76,11 +78,11 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
             if let summary = Airgap.violationSummary() {
                 print(summary)
             }
-            Airgap.writeReport()
             Airgap.deactivate()
             Airgap.violationHandler = previousHandler
             Airgap.allowedHosts = previousAllowedHosts
             Airgap.mode = previousMode
+            AirgapURLProtocol.currentTestName = previousTestName
         }
 
         try await function()
