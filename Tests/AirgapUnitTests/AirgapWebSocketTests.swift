@@ -34,6 +34,30 @@ final class AirgapWebSocketTests {
         #expect(Airgap.violations.first?.url.contains("example.com/ws") ?? false)
     }
 
+    @Test func `Non-TLS WebSocket task produces violation`() {
+        Airgap.activate()
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "ws://example.com/ws")!)
+        task.resume()
+
+        #expect(Airgap.violations.count == 1)
+        #expect(Airgap.violations.first?.url.contains("example.com/ws") ?? false)
+    }
+
+    @Test func `WebSocket violation contains URL and method`() {
+        Airgap.activate()
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "wss://example.com/chat")!)
+        task.resume()
+
+        #expect(Airgap.violations.count == 1)
+        let violation = Airgap.violations.first
+        #expect(violation?.url.contains("example.com/chat") ?? false)
+        #expect(violation?.httpMethod == "GET")
+    }
+
     @Test func `WebSocket task not intercepted when inactive`() {
         // Don't activate
         let session = URLSession(configuration: .default)
