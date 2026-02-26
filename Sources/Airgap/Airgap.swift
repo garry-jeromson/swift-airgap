@@ -176,6 +176,47 @@ public enum Airgap {
         }
     }
 
+    /// Runs `body` with temporary configuration overrides, restoring all state afterward.
+    ///
+    /// Only the parameters you pass are changed; `nil` means "keep the current value."
+    /// All mutable Airgap state (mode, allowedHosts, violationHandler, violationReporter,
+    /// errorCode, responseDelay) is saved before and restored after, even if `body` throws.
+    @discardableResult
+    public static func withConfiguration<T>(
+        mode: Mode? = nil,
+        allowedHosts: Set<String>? = nil,
+        violationHandler: (@Sendable (String) -> Void)? = nil,
+        violationReporter: (@Sendable (Violation) -> Void)? = .none,
+        errorCode: Int? = nil,
+        responseDelay: TimeInterval? = nil,
+        body: () throws -> T
+    ) rethrows -> T {
+        let savedMode = self.mode
+        let savedAllowedHosts = self.allowedHosts
+        let savedHandler = self.violationHandler
+        let savedReporter = self.violationReporter
+        let savedErrorCode = self.errorCode
+        let savedResponseDelay = self.responseDelay
+
+        if let mode { self.mode = mode }
+        if let allowedHosts { self.allowedHosts = allowedHosts }
+        if let violationHandler { self.violationHandler = violationHandler }
+        if let violationReporter { self.violationReporter = violationReporter }
+        if let errorCode { self.errorCode = errorCode }
+        if let responseDelay { self.responseDelay = responseDelay }
+
+        defer {
+            self.mode = savedMode
+            self.allowedHosts = savedAllowedHosts
+            self.violationHandler = savedHandler
+            self.violationReporter = savedReporter
+            self.errorCode = savedErrorCode
+            self.responseDelay = savedResponseDelay
+        }
+
+        return try body()
+    }
+
     /// Returns a summary string of collected violations, or `nil` if there are none.
     public static func violationSummary() -> String? {
         let currentViolations = lock.withLock { _violations }

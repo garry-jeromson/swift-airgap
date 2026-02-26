@@ -211,6 +211,67 @@ final class AirgapTests: XCTestCase {
         XCTAssertEqual(Airgap.responseDelay, 0)
     }
 
+    // MARK: - withConfiguration scoping
+
+    func testWithConfigurationRestoresMode() {
+        Airgap.mode = .fail
+        Airgap.withConfiguration(mode: .warn) {
+            XCTAssertEqual(Airgap.mode, .warn)
+        }
+        XCTAssertEqual(Airgap.mode, .fail)
+    }
+
+    func testWithConfigurationRestoresAllowedHosts() {
+        Airgap.allowedHosts = ["original.com"]
+        Airgap.withConfiguration(allowedHosts: ["override.com"]) {
+            XCTAssertEqual(Airgap.allowedHosts, ["override.com"])
+        }
+        XCTAssertEqual(Airgap.allowedHosts, ["original.com"])
+    }
+
+    func testWithConfigurationRestoresHandler() {
+        let outerCapture = ViolationCapture()
+        Airgap.violationHandler = { outerCapture.record($0) }
+
+        let innerCapture = ViolationCapture()
+        Airgap.withConfiguration(violationHandler: { innerCapture.record($0) }) {
+            Airgap.activate()
+            let exp = expectation(description: "task")
+            URLSession.shared.dataTask(with: URL(string: "https://example.com/inner")!) { _, _, _ in
+                exp.fulfill()
+            }.resume()
+            wait(for: [exp], timeout: 5.0)
+            Airgap.deactivate()
+        }
+
+        XCTAssertEqual(innerCapture.count, 1)
+        XCTAssertEqual(outerCapture.count, 0)
+    }
+
+    func testWithConfigurationRestoresOnThrow() {
+        Airgap.mode = .fail
+        do {
+            try Airgap.withConfiguration(mode: .warn) {
+                XCTAssertEqual(Airgap.mode, .warn)
+                throw NSError(domain: "test", code: 1)
+            }
+        } catch {
+            // expected
+        }
+        XCTAssertEqual(Airgap.mode, .fail)
+    }
+
+    func testWithConfigurationPartialOverrideKeepsOtherSettings() {
+        Airgap.mode = .fail
+        Airgap.errorCode = 42
+        Airgap.withConfiguration(mode: .warn) {
+            XCTAssertEqual(Airgap.mode, .warn)
+            XCTAssertEqual(Airgap.errorCode, 42, "Non-overridden settings should be preserved")
+        }
+        XCTAssertEqual(Airgap.mode, .fail)
+        XCTAssertEqual(Airgap.errorCode, 42)
+    }
+
     // MARK: - Blocking requests
 
     func testURLSessionSharedDataTaskIsBlocked() {
