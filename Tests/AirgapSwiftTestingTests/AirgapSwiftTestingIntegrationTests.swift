@@ -12,7 +12,7 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct ManualActivationTests {
 
-        @Test func sharedSessionRequestIsBlocked() {
+        @Test func `Shared session request is blocked`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -32,7 +32,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(errorCapture.value != nil, "Blocked request should deliver an error")
         }
 
-        @Test func customSessionWithDefaultConfigIsBlocked() {
+        @Test func `Custom session with default config is blocked`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -50,7 +50,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test func customSessionWithEphemeralConfigIsBlocked() {
+        @Test func `Custom session with ephemeral config is blocked`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -68,7 +68,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test func violationMessageContainsURLAndGuidance() {
+        @Test func `Violation message contains URL and guidance`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -88,7 +88,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(message.contains("mock") || message.contains("stub"))
         }
 
-        @Test func fileURLIsNotBlocked() {
+        @Test func `File URL is not blocked`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -109,7 +109,7 @@ struct AllAirgapSwiftTestingTests {
             try? FileManager.default.removeItem(at: tempFile)
         }
 
-        @Test func allowNetworkAccessPreventsBlocking() {
+        @Test func `allowNetworkAccess prevents blocking`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -123,7 +123,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(capture.isEmpty)
         }
 
-        @Test func deactivatedGuardDoesNotBlock() {
+        @Test func `Deactivated guard does not block`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -136,7 +136,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(capture.isEmpty)
         }
 
-        @Test func issueRecordHandlerPatternCompiles() {
+        @Test func `Issue record handler pattern compiles`() {
             Airgap.violationHandler = { Issue.record("\($0)") }
             Airgap.activate()
             defer { Airgap.deactivate() }
@@ -152,14 +152,14 @@ struct AllAirgapSwiftTestingTests {
     @Suite(.airgapped)
     struct TraitSuiteLevelTests {
 
-        @Test func traitBlocksNetworkRequests() {
+        @Test func `Trait blocks network requests`() {
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == true)
         }
 
-        @Test func traitAllowsOptOut() {
+        @Test func `Trait allows opt out`() {
             Airgap.allowNetworkAccess()
 
             let url = URL(string: "https://example.com/api")!
@@ -168,7 +168,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(AirgapURLProtocol.canInit(with: request) == false)
         }
 
-        @Test func traitDoesNotBlockFileURLs() {
+        @Test func `Trait does not block file URLs`() {
             let fileURL = URL(fileURLWithPath: "/tmp/networkguard-trait-test.txt")
             let request = URLRequest(url: fileURL)
 
@@ -178,14 +178,14 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct TraitPerTestTests {
 
-        @Test(.airgapped) func guardedTestBlocksRequests() {
+        @Test(.airgapped) func `Guarded test blocks requests`() {
             let url = URL(string: "https://example.com/api")!
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == true)
         }
 
-        @Test func unguardedTestDoesNotBlock() {
+        @Test func `Unguarded test does not block`() {
             Airgap.deactivate()
 
             let url = URL(string: "https://example.com/api")!
@@ -199,7 +199,7 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct AllowedHostsTests {
 
-        @Test func allowedHostIsNotBlocked() {
+        @Test func `Allowed host is not blocked`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["example.com"]
@@ -216,7 +216,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(capture.isEmpty)
         }
 
-        @Test func nonAllowedHostIsBlocked() {
+        @Test func `Non-allowed host is blocked`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["localhost"]
@@ -237,7 +237,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test func multipleAllowedHostsWork() {
+        @Test func `Multiple allowed hosts work`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["localhost", "127.0.0.1"]
@@ -261,12 +261,12 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct ViolationSummaryTests {
 
-        @Test func summaryIsNilWithNoViolations() {
+        @Test func `Summary is nil with no violations`() {
             Airgap.clearViolations()
             #expect(Airgap.violationSummary() == nil)
         }
 
-        @Test func summaryContainsViolationCount() {
+        @Test func `Summary contains violation count`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.clearViolations()
@@ -292,7 +292,7 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct TraitAbsenceTests {
 
-        @Test func unguardedSuiteDoesNotBlock() {
+        @Test func `Unguarded suite does not block`() {
             Airgap.deactivate()
 
             let url = URL(string: "https://example.com/api")!
@@ -306,7 +306,7 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct TraitStateIsolationTests {
 
-        @Test func traitRestoresAllowedHosts() {
+        @Test func `Trait restores allowed hosts`() {
             // Set allowedHosts before trait scope
             let previousHosts = Airgap.allowedHosts
             Airgap.allowedHosts = ["pre-existing-host.com"]
@@ -322,7 +322,7 @@ struct AllAirgapSwiftTestingTests {
             #expect(Airgap.allowedHosts.contains("pre-existing-host.com"))
         }
 
-        @Test func traitRestoresMode() {
+        @Test func `Trait restores mode`() {
             // Set mode before trait scope
             let previousMode = Airgap.mode
             Airgap.mode = .warn
@@ -338,13 +338,13 @@ struct AllAirgapSwiftTestingTests {
     @Suite(.airgapped(allowedHosts: ["localhost", "127.0.0.1"]))
     struct TraitWithAllowedHostsTests {
 
-        @Test func allowedHostIsNotBlockedViaTrait() {
+        @Test func `Allowed host is not blocked via trait`() {
             let localhostURL = URL(string: "https://localhost/api")!
             #expect(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)) == false,
                     "localhost should be allowed via trait parameter")
         }
 
-        @Test func nonAllowedHostIsStillBlockedViaTrait() {
+        @Test func `Non-allowed host is still blocked via trait`() {
             let externalURL = URL(string: "https://example.com/api")!
             #expect(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)) == true,
                     "Non-allowed host should still be blocked")
@@ -355,7 +355,7 @@ struct AllAirgapSwiftTestingTests {
 
     @Suite struct ViolationCollectionTests {
 
-        @Test func violationsCollectedWithoutReportPath() {
+        @Test func `Violations collected without report path`() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.reportPath = nil
@@ -384,7 +384,7 @@ struct AllAirgapSwiftTestingTests {
     @Suite(.airgapped(mode: .warn))
     struct TraitWithWarnModeTests {
 
-        @Test func warnModeIsSetViaTrait() {
+        @Test func `Warn mode is set via trait`() {
             #expect(Airgap.mode == .warn, "Mode should be .warn when set via trait parameter")
         }
     }
@@ -392,7 +392,7 @@ struct AllAirgapSwiftTestingTests {
     @Suite(.airgapped(mode: .warn, allowedHosts: ["localhost"]))
     struct TraitWithModeAndAllowedHostsTests {
 
-        @Test func modeAndAllowedHostsCombined() {
+        @Test func `Mode and allowed hosts combined`() {
             #expect(Airgap.mode == .warn)
             let localhostURL = URL(string: "https://localhost/api")!
             #expect(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)) == false)
@@ -404,7 +404,7 @@ struct AllAirgapSwiftTestingTests {
     @Suite(.airgapped(mode: .warn))
     struct TraitWarnModeDoesNotFailTests {
 
-        @Test func warnModeViolationDoesNotFail() async throws {
+        @Test func `Warn mode violation does not fail`() async throws {
             let url = URL(string: "https://example.com/api/warn-trait-test")!
             do {
                 _ = try await URLSession.shared.data(from: url)
@@ -422,7 +422,7 @@ struct AllAirgapSwiftTestingTests {
 
         /// Verifies that provideScope clears violations before each test.
         /// Uses manual activation instead of the trait to avoid Issue.record noise.
-        @Test func violationsAreClearedBetweenScopes() async throws {
+        @Test func `Violations are cleared between scopes`() async throws {
             // Simulate what provideScope does — first scope produces a violation
             let capture = ViolationCapture()
             let previousHandler = Airgap.violationHandler
