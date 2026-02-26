@@ -129,6 +129,27 @@ final class AirgapTests: XCTestCase {
         XCTAssertNil(Airgap.violationReporter)
     }
 
+    // MARK: - Error message hints
+
+    func testViolationMessageContainsHint() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/hint-test")!
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+        wait(for: [expectation], timeout: 5.0)
+
+        let message = capture.messages.first ?? ""
+        XCTAssertTrue(message.contains("Hint:"), "Message should contain 'Hint:'")
+        XCTAssertTrue(message.contains("allowNetworkAccess()"), "Hint should mention allowNetworkAccess()")
+        XCTAssertTrue(message.contains("allowedHosts"), "Hint should mention allowedHosts")
+        XCTAssertTrue(message.contains(".warn"), "Hint should mention .warn mode")
+        // Original text is still present
+        XCTAssertTrue(message.contains("mock"), "Original message text should be preserved")
+    }
+
     // MARK: - Blocking requests
 
     func testURLSessionSharedDataTaskIsBlocked() {

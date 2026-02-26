@@ -214,6 +214,8 @@ public enum Airgap {
             message += "\nContent-Type: \(contentType)"
         }
 
+        message += "\nHint: Use Airgap.allowNetworkAccess() for this test, add the host to Airgap.allowedHosts, or use .warn mode for non-blocking violations."
+
         // Always collect violations for programmatic access via violations/violationSummary()
         let violation = Violation(
             testName: testName,
