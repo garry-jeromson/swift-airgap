@@ -469,7 +469,7 @@ final class ErrorCapture: @unchecked Sendable {
     }
 }
 
-/// Thread-safe violation capture for use in Swift Testing tests.
+/// Thread-safe violation capture shared by both integration tests and unit tests (AirgapTests.swift).
 final class ViolationCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var _messages: [String] = []

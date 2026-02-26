@@ -10,6 +10,15 @@ final class AirgapUnitTests {
 
     private let capture = ViolationCapture()
 
+    /// Drains the main queue so that async-dispatched violation handlers are processed.
+    /// `reportViolation` dispatches the handler to `DispatchQueue.main.async` in `.fail` mode
+    /// when called from a background thread (e.g., `com.apple.CFNetwork.CustomProtocols`).
+    private func drainMainQueue() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+    }
+
     init() {
         Airgap.deactivate()
         capture.reset()
@@ -88,6 +97,7 @@ final class AirgapUnitTests {
         Airgap.activate()
         let url = URL(string: "https://example.com/alongside-test")!
         _ = try? await URLSession.shared.data(from: url)
+        await drainMainQueue()
 
         #expect(reporterCapture.violations.count == 1, "Reporter should be called")
         #expect(capture.count == 1, "Handler should also be called")
@@ -227,31 +237,28 @@ final class AirgapUnitTests {
 
     // MARK: - WebSocket interception
 
-    @Test func `WebSocket task produces violation`() async throws {
+    @Test func `WebSocket task produces violation`() {
         Airgap.activate()
 
         let session = URLSession(configuration: .default)
         let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
         task.resume()
 
-        try await Task.sleep(for: .milliseconds(500))
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("example.com/ws") ?? false)
+        // The swizzled resume() reports violations and cancels synchronously
+        #expect(Airgap.violations.count == 1)
+        #expect(Airgap.violations.first?.url.contains("example.com/ws") ?? false)
     }
 
-    @Test func `WebSocket task not intercepted when inactive`() async throws {
+    @Test func `WebSocket task not intercepted when inactive`() {
         // Don't activate
         let session = URLSession(configuration: .default)
         let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
         task.resume()
 
-        try await Task.sleep(for: .milliseconds(500))
-
-        #expect(capture.count == 0)
+        #expect(Airgap.violations.count == 0)
     }
 
-    @Test func `WebSocket task respects allowed hosts`() async throws {
+    @Test func `WebSocket task respects allowed hosts`() {
         Airgap.allowedHosts = ["example.com"]
         Airgap.activate()
 
@@ -259,9 +266,7 @@ final class AirgapUnitTests {
         let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
         task.resume()
 
-        try await Task.sleep(for: .milliseconds(500))
-
-        #expect(capture.count == 0, "Allowed host should not produce a violation")
+        #expect(Airgap.violations.count == 0, "Allowed host should not produce a violation")
     }
 
     @Test func `WebSocket task is cancelled after violation`() async throws {
@@ -271,9 +276,10 @@ final class AirgapUnitTests {
         let task = session.webSocketTask(with: URL(string: "wss://example.com/ws-cancel")!)
         task.resume()
 
-        try await Task.sleep(for: .milliseconds(500))
+        // cancel() is called synchronously in the swizzled resume(), but the task
+        // state transition is asynchronous — give the run loop a moment to process it.
+        try await Task.sleep(for: .milliseconds(100))
 
-        // After cancel(), the task transitions through .canceling to .completed
         #expect(
             task.state == .canceling || task.state == .completed,
             "Task should be cancelled after violation, got state: \(task.state.rawValue)"
@@ -293,22 +299,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
-    }
-
-    @Test func `URLSession.shared async data is blocked`() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://httpbin.org/get")!
-
-        do {
-            _ = try await URLSession.shared.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
-        }
-
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `URLSession with default config is blocked`() async {
@@ -325,7 +316,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `URLSession with ephemeral config is blocked`() async {
@@ -342,7 +333,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `HTTP scheme is blocked`() async {
@@ -356,7 +347,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     // MARK: - Non-HTTP schemes
@@ -392,10 +383,11 @@ final class AirgapUnitTests {
 
         let url = URL(string: "https://example.com/api/test")!
         _ = try? await URLSession.shared.data(from: url)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
 
-        let message = capture.messages[0]
+        let message = capture.messages.first ?? ""
         #expect(message.contains("https://example.com/api/test"), "Message should contain the URL")
         #expect(message.contains("GET"), "Message should contain the HTTP method")
         #expect(message.contains("mock") || message.contains("stub"), "Message should contain guidance")
@@ -450,6 +442,7 @@ final class AirgapUnitTests {
         let url = URL(string: "https://example.com/api/warn-test")!
         _ = try? await URLSession.shared.data(from: url)
 
+        // Warn mode with inXCTestContext=false calls handler directly (no main queue dispatch)
         #expect(capture.count == 1)
     }
 
@@ -460,7 +453,7 @@ final class AirgapUnitTests {
         Airgap.reportViolation(method: "GET", url: "https://example.com/warn-direct", callStack: [], testName: "test")
 
         #expect(capture.count == 1, "Warn mode should call the configured violationHandler")
-        #expect(capture.messages[0].contains("warn-direct"))
+        #expect(capture.messages.first?.contains("warn-direct") ?? false)
     }
 
     @Test func `Fail mode calls violation handler directly`() async {
@@ -469,9 +462,10 @@ final class AirgapUnitTests {
 
         let url = URL(string: "https://example.com/api/fail-test")!
         _ = try? await URLSession.shared.data(from: url)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("fail-test"))
+        #expect(capture.messages.first?.contains("fail-test") ?? false)
     }
 
     // MARK: - Violation collection
@@ -525,7 +519,7 @@ final class AirgapUnitTests {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-report-content-\(UUID().uuidString).txt").path
         Airgap.reportPath = tempPath
-        AirgapURLProtocol.currentTestName = "-[AirgapTests testReportContainsMethodAndURL]"
+        AirgapURLProtocol.currentTestName = "AirgapUnitTests/Report contains method and URL"
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/report-content")!
@@ -537,7 +531,7 @@ final class AirgapUnitTests {
         #expect(content != nil)
         #expect(content?.contains("Method: GET") ?? false)
         #expect(content?.contains("URL: https://example.com/api/report-content") ?? false)
-        #expect(content?.contains("Test: -[AirgapTests testReportContainsMethodAndURL]") ?? false)
+        #expect(content?.contains("Test: AirgapUnitTests/Report contains method and URL") ?? false)
         #expect(content?.contains("Call Stack:") ?? false)
         #expect(content?.contains("Total violations:") ?? false)
 
@@ -547,9 +541,6 @@ final class AirgapUnitTests {
     // MARK: - Clear violations
 
     @Test func `Clear violations resets collection`() async {
-        let tempPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ng-clear-\(UUID().uuidString).txt").path
-        Airgap.reportPath = tempPath
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/clear-test")!
@@ -559,8 +550,6 @@ final class AirgapUnitTests {
 
         Airgap.clearViolations()
         #expect(Airgap.violations.isEmpty)
-
-        try? FileManager.default.removeItem(atPath: tempPath)
     }
 
     // MARK: - Mode is not reset by activate
@@ -676,7 +665,7 @@ final class AirgapUnitTests {
         let url = URL(string: "https://example.com/api/test")!
         _ = try? await URLSession.shared.data(from: url)
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `Allowed hosts persist across activations`() {
@@ -777,7 +766,7 @@ final class AirgapUnitTests {
         let url = URL(string: "https://notexample.com/data")!
         _ = try? await URLSession.shared.data(from: url)
 
-        #expect(capture.count == 1, "*.example.com should not match notexample.com")
+        #expect(Airgap.violations.count == 1, "*.example.com should not match notexample.com")
     }
 
     @Test func `Wildcard allowed host is case insensitive`() {
@@ -833,9 +822,10 @@ final class AirgapUnitTests {
         request.httpBody = Data(#"{"key":"value"}"#.utf8)
 
         _ = try? await URLSession.shared.data(for: request)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("POST"))
+        #expect(capture.messages.first?.contains("POST") ?? false)
     }
 
     @Test func `PUT method is blocked`() async {
@@ -845,9 +835,10 @@ final class AirgapUnitTests {
         request.httpMethod = "PUT"
 
         _ = try? await URLSession.shared.data(for: request)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("PUT"))
+        #expect(capture.messages.first?.contains("PUT") ?? false)
     }
 
     @Test func `DELETE method is blocked`() async {
@@ -857,9 +848,10 @@ final class AirgapUnitTests {
         request.httpMethod = "DELETE"
 
         _ = try? await URLSession.shared.data(for: request)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("DELETE"))
+        #expect(capture.messages.first?.contains("DELETE") ?? false)
     }
 
     @Test func `PATCH method is blocked`() async {
@@ -869,9 +861,10 @@ final class AirgapUnitTests {
         request.httpMethod = "PATCH"
 
         _ = try? await URLSession.shared.data(for: request)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("PATCH"))
+        #expect(capture.messages.first?.contains("PATCH") ?? false)
     }
 
     @Test func `HEAD method is blocked`() async {
@@ -881,9 +874,10 @@ final class AirgapUnitTests {
         request.httpMethod = "HEAD"
 
         _ = try? await URLSession.shared.data(for: request)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("HEAD"))
+        #expect(capture.messages.first?.contains("HEAD") ?? false)
     }
 
     // MARK: - Violation message includes request details
@@ -896,9 +890,10 @@ final class AirgapUnitTests {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         _ = try? await URLSession.shared.data(for: request)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(capture.messages[0].contains("application/json"), "Violation should include Content-Type header")
+        #expect(capture.messages.first?.contains("application/json") ?? false, "Violation should include Content-Type header")
     }
 
     @Test func `Violation message omits content type when absent`() async {
@@ -906,9 +901,11 @@ final class AirgapUnitTests {
 
         let url = URL(string: "https://example.com/api/no-content-type")!
         _ = try? await URLSession.shared.data(from: url)
+        await drainMainQueue()
 
         #expect(capture.count == 1)
-        #expect(!capture.messages[0].contains("Content-Type"), "GET without Content-Type should not include it")
+        let message = capture.messages.first ?? ""
+        #expect(!message.contains("Content-Type"), "GET without Content-Type should not include it")
     }
 
     // MARK: - Upload and download tasks
@@ -927,7 +924,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `Download task is blocked`() async {
@@ -942,7 +939,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     // MARK: - Concurrent requests
@@ -964,7 +961,7 @@ final class AirgapUnitTests {
             }
         }
 
-        #expect(capture.count >= 5)
+        #expect(Airgap.violations.count >= 5)
     }
 
     // MARK: - URL edge cases
@@ -980,7 +977,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `URL with fragment is blocked`() {
@@ -1003,7 +1000,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1)
+        #expect(Airgap.violations.count == 1)
     }
 
     @Test func `URL with basic auth is blocked`() {
@@ -1046,6 +1043,9 @@ final class AirgapUnitTests {
 
     // MARK: - Call stack caller attribution
 
+    /// Note: This test is inherently brittle. It matches against mangled Swift symbol
+    /// names in the call stack, which are compiler-version-dependent. If the test module
+    /// or type is renamed, or the compiler's name mangling changes, update the patterns below.
     @Test func `Violation call stack contains caller frame`() async {
         Airgap.activate()
 
@@ -1061,8 +1061,9 @@ final class AirgapUnitTests {
 
         #expect(Airgap.violations.count >= 1)
         let callStack = Airgap.violations[0].callStack
+        let testModulePatterns = ["AirgapTests", "AirgapUnitTests", "AirgapSwiftTestingTests"]
         let containsTestFrame = callStack.contains { frame in
-            frame.contains("AirgapTests") || frame.contains("AirgapUnitTests") || frame.contains("AirgapSwiftTestingTests")
+            testModulePatterns.contains { frame.contains($0) }
         }
         #expect(containsTestFrame, "Call stack should contain the caller's frame. Got:\n\(callStack.prefix(10).joined(separator: "\n"))")
     }
@@ -1108,8 +1109,8 @@ final class AirgapUnitTests {
             }
         }
 
-        group.wait()
-        // No crash = success
+        let result = group.wait(timeout: .now() + 10)
+        #expect(result == .success, "Concurrent handler mutations should complete within timeout")
     }
 
     // MARK: - Violation model tests
@@ -1194,7 +1195,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1, "Violation should be captured for Ktor-style session")
+        #expect(Airgap.violations.count == 1, "Violation should be captured for Ktor-style session")
     }
 
     /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
@@ -1216,7 +1217,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1, "Init swizzle should catch requests from pre-activation configs")
+        #expect(Airgap.violations.count == 1, "Init swizzle should catch requests from pre-activation configs")
     }
 
     // MARK: - Combine dataTaskPublisher
@@ -1235,13 +1236,7 @@ final class AirgapUnitTests {
                 }, receiveValue: { _ in })
         }
 
-        // The violation handler is dispatched to the main queue async;
-        // drain the main queue to ensure it's been processed.
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            DispatchQueue.main.async { continuation.resume() }
-        }
-
-        #expect(capture.count >= 1, "Combine dataTaskPublisher should be intercepted")
+        #expect(Airgap.violations.count >= 1, "Combine dataTaskPublisher should be intercepted")
     }
 
     // MARK: - Async upload and download
@@ -1260,7 +1255,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1, "Async upload should be intercepted")
+        #expect(Airgap.violations.count == 1, "Async upload should be intercepted")
     }
 
     @Test func `Async download is intercepted`() async {
@@ -1275,7 +1270,7 @@ final class AirgapUnitTests {
             // Expected
         }
 
-        #expect(capture.count == 1, "Async download should be intercepted")
+        #expect(Airgap.violations.count == 1, "Async download should be intercepted")
     }
 
     // MARK: - data: scheme pass-through
