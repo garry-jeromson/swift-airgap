@@ -34,17 +34,30 @@ open class AirgapObserver: NSObject, XCTestObservation, @unchecked Sendable {
         XCTestObservationCenter.shared.addTestObserver(self)
     }
 
+    /// Called before any test in the bundle runs.
+    ///
+    /// Sets `inXCTestContext`, reads environment variables via `configureFromEnvironment()`,
+    /// and activates the guard. Subclasses should call `super` — set custom configuration
+    /// (e.g., `Airgap.mode`, `Airgap.reportPath`) either before or after `super` depending
+    /// on whether the environment should take precedence.
     open func testBundleWillStart(_ testBundle: Bundle) {
         Airgap.inXCTestContext = true
         Airgap.configureFromEnvironment()
         Airgap.activate()
     }
 
+    /// Called before each test method runs.
+    ///
+    /// Resets the allow flag so a previous test's `allowNetworkAccess()` does not leak,
+    /// and sets `currentTestName` for violation attribution.
     public func testCaseWillStart(_ testCase: XCTestCase) {
         AirgapURLProtocol.isAllowed = false
         AirgapURLProtocol.currentTestName = testCase.name
     }
 
+    /// Called after all tests in the bundle have finished.
+    ///
+    /// Prints the violation summary (if any), writes the report file, and deactivates the guard.
     public func testBundleDidFinish(_ testBundle: Bundle) {
         if let summary = Airgap.violationSummary() {
             print(summary)
