@@ -38,7 +38,7 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
 
     // MARK: - URLProtocol overrides
 
-    override public class func canInit(with request: URLRequest) -> Bool {
+    override public static func canInit(with request: URLRequest) -> Bool {
         guard isActive, !isAllowed else { return false }
 
         // Only intercept http and https schemes
@@ -68,7 +68,7 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
         return true
     }
 
-    override public class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override public static func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
 
@@ -91,7 +91,7 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
             domain: NSURLErrorDomain,
             code: NSURLErrorNotConnectedToInternet,
             userInfo: [
-                NSLocalizedDescriptionKey: "Airgap: Network access is not allowed during tests.",
+                NSLocalizedDescriptionKey: "Airgap: Network access is not allowed during tests."
             ]
         )
         client?.urlProtocol(self, didFailWithError: error)

@@ -8,10 +8,29 @@ let package = Package(
     products: [
         .library(name: "Airgap", targets: ["Airgap"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2"),
+        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.55.6"),
+    ],
     targets: [
-        .target(name: "Airgap"),
-        .testTarget(name: "AirgapTests", dependencies: ["Airgap"]),
-        .testTarget(name: "AirgapXCTestIntegrationTests", dependencies: ["Airgap"]),
-        .testTarget(name: "AirgapSwiftTestingTests", dependencies: ["Airgap"]),
+        .target(
+            name: "Airgap",
+            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+        ),
+        .testTarget(
+            name: "AirgapTests",
+            dependencies: ["Airgap"],
+            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+        ),
+        .testTarget(
+            name: "AirgapXCTestIntegrationTests",
+            dependencies: ["Airgap"],
+            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+        ),
+        .testTarget(
+            name: "AirgapSwiftTestingTests",
+            dependencies: ["Airgap"],
+            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+        ),
     ]
 )

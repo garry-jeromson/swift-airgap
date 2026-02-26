@@ -707,7 +707,7 @@ final class AirgapTests: XCTestCase {
         let expectation = expectation(description: "POST completes")
         var request = URLRequest(url: URL(string: "https://example.com/api/post")!)
         request.httpMethod = "POST"
-        request.httpBody = #"{"key":"value"}"#.data(using: .utf8)
+        request.httpBody = Data(#"{"key":"value"}"#.utf8)
 
         URLSession.shared.dataTask(with: request) { _, _, error in
             XCTAssertNotNil(error)
@@ -831,7 +831,7 @@ final class AirgapTests: XCTestCase {
         let expectation = expectation(description: "Upload completes")
         var request = URLRequest(url: URL(string: "https://example.com/upload")!)
         request.httpMethod = "POST"
-        let data = "file content".data(using: .utf8)!
+        let data = Data("file content".utf8)
 
         URLSession.shared.uploadTask(with: request, from: data) { _, _, error in
             XCTAssertNotNil(error)
@@ -1210,7 +1210,7 @@ final class AirgapTests: XCTestCase {
 
         var request = URLRequest(url: URL(string: "https://example.com/api/async-upload")!)
         request.httpMethod = "POST"
-        let body = "upload data".data(using: .utf8)!
+        let body = Data("upload data".utf8)
 
         do {
             _ = try await URLSession.shared.upload(for: request, from: body)
@@ -1359,11 +1359,11 @@ private final class ViolationCapture: @unchecked Sendable {
 
 /// A minimal URLProtocol subclass for the mock:// scheme, used to verify coexistence with Airgap.
 private final class MockSchemeProtocol: URLProtocol {
-    override class func canInit(with request: URLRequest) -> Bool {
+    override static func canInit(with request: URLRequest) -> Bool {
         request.url?.scheme == "mock"
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
 

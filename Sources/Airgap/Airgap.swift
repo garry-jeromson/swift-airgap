@@ -45,7 +45,7 @@ public enum Airgap {
     /// Thread-safe: reads and writes are protected by an internal lock.
     nonisolated(unsafe) private static var _violations: [Violation] = []
     public static var violations: [Violation] {
-        get { lock.withLock { _violations } }
+        lock.withLock { _violations }
     }
 
     /// Hosts that are allowed through even when the guard is active.
@@ -358,7 +358,9 @@ public enum Airgap {
         typealias OriginalFunction = @convention(c) (AnyObject, Selector, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession
         let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
 
-        let swizzledBlock: @convention(block) (AnyObject, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession = { obj, config, delegate, queue in
+        let swizzledBlock: @convention(block) (
+            AnyObject, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?
+        ) -> URLSession = { obj, config, delegate, queue in
             var protocols = config.protocolClasses ?? []
             if !protocols.contains(where: { $0 == AirgapURLProtocol.self }) {
                 protocols.insert(AirgapURLProtocol.self, at: 0)
