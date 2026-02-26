@@ -15,7 +15,7 @@ Tests should never make real outgoing network calls — they slow down the suite
 Add the package to your `Package.swift` or Xcode project:
 
 ```swift
-.package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.2.0")
+.package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.3.0")
 ```
 
 Then add `"Airgap"` to your test target's dependencies.
