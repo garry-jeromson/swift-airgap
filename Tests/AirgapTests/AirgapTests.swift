@@ -59,6 +59,21 @@ final class AirgapTests: XCTestCase {
         // No crash = success
     }
 
+    func testIsActiveReturnsFalseBeforeActivation() {
+        XCTAssertFalse(Airgap.isActive)
+    }
+
+    func testIsActiveReturnsTrueAfterActivation() {
+        Airgap.activate()
+        XCTAssertTrue(Airgap.isActive)
+    }
+
+    func testIsActiveReturnsFalseAfterDeactivation() {
+        Airgap.activate()
+        Airgap.deactivate()
+        XCTAssertFalse(Airgap.isActive)
+    }
+
     // MARK: - Blocking requests
 
     func testURLSessionSharedDataTaskIsBlocked() {

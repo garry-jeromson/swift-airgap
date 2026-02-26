@@ -72,6 +72,11 @@ public enum Airgap {
         set { lock.withLock { _violationHandler = newValue } }
     }
 
+    /// Whether the network guard is currently active.
+    public static var isActive: Bool {
+        AirgapURLProtocol.isActive
+    }
+
     /// Whether we're running in an XCTest context (vs Swift Testing or standalone).
     ///
     /// Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
