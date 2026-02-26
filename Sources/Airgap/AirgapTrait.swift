@@ -51,6 +51,12 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         self.additionalAllowedHosts = allowedHosts
     }
 
+    /// Activates Airgap for the duration of a single test or suite scope.
+    ///
+    /// Acquires `Airgap.scopeLock` (unless already held by an outer scope), saves all mutable
+    /// Airgap state, applies configuration from the trait parameters and environment, runs the
+    /// test body, then restores all state. This ensures test-level isolation even though Airgap
+    /// uses process-global static properties.
     public func provideScope(
         for test: Test,
         testCase: Test.Case?,
