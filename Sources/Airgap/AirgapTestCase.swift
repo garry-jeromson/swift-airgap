@@ -8,6 +8,10 @@ import XCTest
 /// `Airgap.allowNetworkAccess()` after `super.setUp()`.
 open class AirgapTestCase: XCTestCase {
 
+    /// Sets up Airgap before each test.
+    ///
+    /// Call order: `configureFromEnvironment()` → `configure()` → `clearViolations()` → `activate()`.
+    /// Override `configure()` (not `setUp`) to customize settings like `mode` or `allowedHosts`.
     override open func setUp() {
         super.setUp()
         Airgap.inXCTestContext = true
@@ -20,8 +24,19 @@ open class AirgapTestCase: XCTestCase {
 
     /// Override to configure Airgap after environment variables are applied.
     /// Called after `configureFromEnvironment()` and before `activate()`.
+    ///
+    /// Example:
+    /// ```swift
+    /// override func configure() {
+    ///     Airgap.mode = .warn
+    ///     Airgap.allowedHosts = ["localhost"]
+    /// }
+    /// ```
     open func configure() {}
 
+    /// Tears down Airgap after each test.
+    ///
+    /// Prints the violation summary, writes the report file, and deactivates the guard.
     override open func tearDown() {
         if let summary = Airgap.violationSummary() {
             print(summary)
