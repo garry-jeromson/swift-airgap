@@ -1,0 +1,130 @@
+import Foundation
+import Testing
+@testable import Airgap
+
+extension AllAirgapSwiftTestingTests {
+
+@Suite(.serialized)
+final class AirgapReportTests {
+
+    init() {
+        Airgap.deactivate()
+        Airgap.violationHandler = { _ in }
+        Airgap.violationReporter = nil
+        Airgap.inXCTestContext = false
+        Airgap.errorCode = NSURLErrorNotConnectedToInternet
+        Airgap.responseDelay = 0
+        Airgap.mode = .fail
+        Airgap.reportPath = nil
+        Airgap.allowedHosts = []
+        Airgap.clearViolations()
+    }
+
+    // MARK: - Report writing
+
+    @Test func `Write report creates file`() async {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ng-report-\(UUID().uuidString).txt").path
+        Airgap.reportPath = tempPath
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/report-test")!
+        _ = try? await URLSession.shared.data(from: url)
+
+        Airgap.writeReport()
+
+        #expect(FileManager.default.fileExists(atPath: tempPath))
+
+        try? FileManager.default.removeItem(atPath: tempPath)
+    }
+
+    @Test func `Report contains method and URL`() async {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ng-report-content-\(UUID().uuidString).txt").path
+        Airgap.reportPath = tempPath
+        AirgapURLProtocol.currentTestName = "AirgapReportTests/Report contains method and URL"
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/report-content")!
+        _ = try? await URLSession.shared.data(from: url)
+
+        Airgap.writeReport()
+
+        let content = try? String(contentsOfFile: tempPath, encoding: .utf8)
+        #expect(content != nil)
+        #expect(content?.contains("Method: GET") ?? false)
+        #expect(content?.contains("URL: https://example.com/api/report-content") ?? false)
+        #expect(content?.contains("Test: AirgapReportTests/Report contains method and URL") ?? false)
+        #expect(content?.contains("Call Stack:") ?? false)
+        #expect(content?.contains("Total violations:") ?? false)
+
+        try? FileManager.default.removeItem(atPath: tempPath)
+    }
+
+    // MARK: - Report edge cases
+
+    @Test func `Write report handles unwritable path`() async {
+        Airgap.reportPath = "/nonexistent/deep/path/airgap-report.txt"
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/unwritable")!
+        _ = try? await URLSession.shared.data(from: url)
+
+        // Should not crash
+        Airgap.writeReport()
+    }
+
+    @Test func `Write report with no violations does not create file`() {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ng-empty-\(UUID().uuidString).txt").path
+        Airgap.reportPath = tempPath
+
+        Airgap.writeReport()
+
+        #expect(!FileManager.default.fileExists(atPath: tempPath))
+    }
+
+    // MARK: - JSON report output
+
+    @Test func `Write report as JSON`() async throws {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("airgap-test-\(UUID().uuidString).json").path
+        defer { try? FileManager.default.removeItem(atPath: tempPath) }
+
+        Airgap.reportPath = tempPath
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/json-report")!
+        _ = try? await URLSession.shared.data(from: url)
+
+        Airgap.writeReport()
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: tempPath))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let violations = try decoder.decode([Violation].self, from: data)
+        #expect(violations.count == 1)
+        #expect(violations[0].url == "https://example.com/api/json-report")
+        #expect(violations[0].httpMethod == "GET")
+    }
+
+    // MARK: - Violation summary
+
+    @Test func `Violation summary returns nil when no violations`() {
+        #expect(Airgap.violationSummary() == nil)
+    }
+
+    @Test func `Violation summary returns formatted string`() async {
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/summary-test")!
+        _ = try? await URLSession.shared.data(from: url)
+
+        let summary = Airgap.violationSummary()
+        #expect(summary != nil)
+        #expect(summary?.contains("1 violation(s)") ?? false)
+        #expect(summary?.contains("1 test(s)") ?? false)
+    }
+}
+
+} // extension AllAirgapSwiftTestingTests
