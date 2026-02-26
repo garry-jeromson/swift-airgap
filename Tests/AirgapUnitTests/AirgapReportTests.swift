@@ -74,6 +74,19 @@ final class AirgapReportTests {
         Airgap.writeReport()
     }
 
+    @Test func `Write report with nil path is a no-op`() async {
+        Airgap.reportPath = nil
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/nil-path-test")!
+        _ = try? await URLSession.shared.data(from: url)
+
+        // Should not crash or create any file
+        Airgap.writeReport()
+
+        #expect(Airgap.violations.count == 1, "Violations should still be collected")
+    }
+
     @Test func `Write report with no violations does not create file`() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-empty-\(UUID().uuidString).txt").path
