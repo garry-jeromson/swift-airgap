@@ -64,11 +64,15 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
 
         Airgap.configureFromEnvironment()
         // In fail mode, record violations as Swift Testing Issues.
-        // In warn mode, the violation is already collected in Airgap.violations;
-        // use a no-op handler to avoid recording a failing Issue.
+        // In warn mode, wrap violations in withKnownIssue so they appear in
+        // the test navigator as known issues without failing the test.
         let effectiveMode = modeOverride ?? Airgap.mode
         if effectiveMode == .warn {
-            Airgap.violationHandler = { _ in }
+            Airgap.violationHandler = { message in
+                withKnownIssue("Airgap violation (warning mode)") {
+                    Issue.record("\(message)")
+                }
+            }
         } else {
             Airgap.violationHandler = { Issue.record("\($0)") }
         }

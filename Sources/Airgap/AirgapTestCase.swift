@@ -12,10 +12,15 @@ open class AirgapTestCase: XCTestCase {
         super.setUp()
         Airgap.inXCTestContext = true
         Airgap.configureFromEnvironment()
+        configure()
         Airgap.clearViolations()
         AirgapURLProtocol.currentTestName = name
         Airgap.activate()
     }
+
+    /// Override to configure Airgap after environment variables are applied.
+    /// Called after `configureFromEnvironment()` and before `activate()`.
+    open func configure() {}
 
     override open func tearDown() {
         if let summary = Airgap.violationSummary() {

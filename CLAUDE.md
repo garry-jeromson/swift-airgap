@@ -28,11 +28,11 @@ Intercepted requests receive `NSURLErrorNotConnectedToInternet`. Non-HTTP scheme
 
 | File | Purpose |
 |---|---|
-| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, violation reporting |
+| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, violation reporting (text and JSON formats) |
 | `Sources/Airgap/AirgapURLProtocol.swift` | URLProtocol subclass that intercepts HTTP/HTTPS requests |
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
-| `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation |
-| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation |
+| `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |
+| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation; warn mode uses `withKnownIssue` |
 | `Sources/Airgap/Violation.swift` | Sendable/Codable data model for captured violations |
 
 ## Conventions
@@ -72,7 +72,7 @@ Airgap's existing swizzling already catches most KMP network requests on Apple p
 
 ### Known Gaps
 
-1. **Preconfigured sessions created before `activate()`** — `usePreconfiguredSession()` with a `NSURLSession` created before `Airgap.activate()` bypasses all swizzling since the session already exists. The `URLSession.init` swizzle closes the gap for sessions created *after* activation, even from pre-activation configs.
+1. **Sessions created before `activate()` with non-standard configs** — sessions created before `Airgap.activate()` bypass all swizzling since the session already exists. The `URLSession.init` swizzle closes the gap for sessions created *after* activation, even from pre-activation configs or non-standard configs (e.g., `.background`).
 2. **Other KMP HTTP clients** — custom expect/actual implementations using raw platform networking depend on whether they go through `URLSession`
 
 ### Verification

@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import Airgap
 
@@ -1181,6 +1182,127 @@ final class AirgapTests: XCTestCase {
                        "Init swizzle should catch requests from pre-activation configs")
     }
 
+    // MARK: - Combine dataTaskPublisher
+
+    func testCombineDataTaskPublisherIsIntercepted() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Combine publisher completes")
+        let url = URL(string: "https://example.com/api/combine")!
+        var cancellable: AnyCancellable?
+
+        cancellable = URLSession.shared.dataTaskPublisher(for: url)
+            .sink(receiveCompletion: { completion in
+                if case .failure = completion {
+                    expectation.fulfill()
+                }
+                _ = cancellable  // prevent unused warning
+            }, receiveValue: { _ in })
+
+        wait(for: [expectation], timeout: 5.0)
+        XCTAssertEqual(capture.count, 1, "Combine dataTaskPublisher should be intercepted")
+    }
+
+    // MARK: - Async upload and download
+
+    func testAsyncUploadIsIntercepted() async {
+        Airgap.activate()
+
+        var request = URLRequest(url: URL(string: "https://example.com/api/async-upload")!)
+        request.httpMethod = "POST"
+        let body = "upload data".data(using: .utf8)!
+
+        do {
+            _ = try await URLSession.shared.upload(for: request, from: body)
+            XCTFail("Upload should have thrown an error")
+        } catch {
+            // Expected
+        }
+
+        XCTAssertEqual(capture.count, 1, "Async upload should be intercepted")
+    }
+
+    func testAsyncDownloadIsIntercepted() async {
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/async-download")!
+
+        do {
+            _ = try await URLSession.shared.download(from: url)
+            XCTFail("Download should have thrown an error")
+        } catch {
+            // Expected
+        }
+
+        XCTAssertEqual(capture.count, 1, "Async download should be intercepted")
+    }
+
+    // MARK: - data: scheme pass-through
+
+    func testDataURLIsNotIntercepted() {
+        Airgap.activate()
+
+        let url = URL(string: "data:text/plain;base64,SGVsbG8=")!
+        let request = URLRequest(url: url)
+
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request),
+                       "data: URLs should not be intercepted")
+    }
+
+    // MARK: - Custom URLProtocol coexistence
+
+    func testCustomURLProtocolCoexistsWithAirgap() {
+        // Register a custom protocol for mock:// scheme
+        URLProtocol.registerClass(MockSchemeProtocol.self)
+        defer { URLProtocol.unregisterClass(MockSchemeProtocol.self) }
+
+        Airgap.activate()
+
+        // mock:// should be handled by our custom protocol, not Airgap
+        let mockURL = URL(string: "mock://test/resource")!
+        let mockRequest = URLRequest(url: mockURL)
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: mockRequest),
+                       "Airgap should not intercept mock:// scheme")
+        XCTAssertTrue(MockSchemeProtocol.canInit(with: mockRequest),
+                      "MockSchemeProtocol should handle mock:// scheme")
+
+        // https:// should still be blocked by Airgap
+        let httpsURL = URL(string: "https://example.com/api/coexistence")!
+        let httpsRequest = URLRequest(url: httpsURL)
+        XCTAssertTrue(AirgapURLProtocol.canInit(with: httpsRequest),
+                      "Airgap should still intercept https:// requests")
+    }
+
+    // MARK: - JSON report output
+
+    func testWriteReportAsJSON() throws {
+        let tempPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("airgap-test-\(UUID().uuidString).json").path
+        defer { try? FileManager.default.removeItem(atPath: tempPath) }
+
+        Airgap.reportPath = tempPath
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/api/json-report")!
+
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+
+        wait(for: [expectation], timeout: 5.0)
+
+        Airgap.writeReport()
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: tempPath))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let violations = try decoder.decode([Violation].self, from: data)
+        XCTAssertEqual(violations.count, 1)
+        XCTAssertEqual(violations[0].url, "https://example.com/api/json-report")
+        XCTAssertEqual(violations[0].httpMethod, "GET")
+    }
+
     /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol into the
     /// config passed to the initializer, even for non-standard configs like background.
     /// The config-getter swizzle only covers .default and .ephemeral.
@@ -1233,6 +1355,23 @@ private final class ViolationCapture: @unchecked Sendable {
     func reset() {
         lock.withLock { _messages = [] }
     }
+}
+
+/// A minimal URLProtocol subclass for the mock:// scheme, used to verify coexistence with Airgap.
+private final class MockSchemeProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.scheme == "mock"
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        client?.urlProtocol(self, didFailWithError: NSError(domain: "MockScheme", code: 0))
+    }
+
+    override func stopLoading() {}
 }
 
 /// A concrete subclass of AirgapTestCase for testing the lifecycle methods.

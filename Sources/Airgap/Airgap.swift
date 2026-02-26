@@ -15,7 +15,8 @@ public enum Airgap {
         case fail
         /// Calls the violation handler without failing the test. In XCTest, the call is wrapped
         /// in XCTExpectFailure so it appears in Xcode's issue navigator as an expected failure.
-        /// In Swift Testing with the `.airgapped` trait, violations are collected silently.
+        /// In Swift Testing with the `.airgapped` trait, violations are wrapped in `withKnownIssue`
+        /// so they appear as known issues in the test navigator.
         case warn
     }
 
@@ -247,22 +248,46 @@ public enum Airgap {
     }
 
     /// Writes collected violations to the configured `reportPath`.
+    ///
+    /// The output format is determined by the file extension:
+    /// - `.json` — writes a JSON array of violation objects using `JSONEncoder`
+    /// - Any other extension — writes a human-readable plain text report
     public static func writeReport() {
         guard let path = reportPath else { return }
 
         let currentViolations = lock.withLock { _violations }
         guard !currentViolations.isEmpty else { return }
 
+        let directory = (path as NSString).deletingLastPathComponent
+        do {
+            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+
+            if (path as NSString).pathExtension.lowercased() == "json" {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(currentViolations)
+                try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+            } else {
+                let report = buildTextReport(currentViolations)
+                try report.write(toFile: path, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            fputs("Airgap: Failed to write report to \(path): \(error)\n", stderr)
+        }
+    }
+
+    private static func buildTextReport(_ violations: [Violation]) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
         var report = """
         Airgap Violation Report
         Generated: \(dateFormatter.string(from: Date()))
-        Total violations: \(currentViolations.count)
+        Total violations: \(violations.count)
         """
 
-        for violation in currentViolations {
+        for violation in violations {
             report += "\n\n---\n"
             report += "Test: \(violation.testName)\n"
             report += "Method: \(violation.httpMethod)\n"
@@ -273,13 +298,7 @@ public enum Airgap {
             }
         }
 
-        let directory = (path as NSString).deletingLastPathComponent
-        do {
-            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-            try report.write(toFile: path, atomically: true, encoding: .utf8)
-        } catch {
-            fputs("Airgap: Failed to write report to \(path): \(error)\n", stderr)
-        }
+        return report
     }
 
     // MARK: - Configuration swizzling

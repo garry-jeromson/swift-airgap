@@ -15,7 +15,7 @@ Tests should never make real outgoing network calls — they slow down the suite
 Add the package to your `Package.swift` or Xcode project:
 
 ```swift
-.package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.1.0")
+.package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.2.0")
 ```
 
 Then add `"Airgap"` to your test target's dependencies.
@@ -39,7 +39,7 @@ Apply the `.airgapped` trait to a suite or test:
 import Airgap
 import Testing
 
-@Suite(.airgapped)
+@Suite(.airgapped, .serialized)
 struct MyFeatureTests {
     @Test func fetchData() async throws {
         // Any HTTP/HTTPS request here will record an Issue
@@ -120,13 +120,15 @@ Choose `AirgapObserver` when you want bundle-wide coverage with a single violati
 Apply the trait to a `@Suite` to protect all tests within it:
 
 ```swift
-@Suite(.airgapped)
+@Suite(.airgapped, .serialized)
 struct MyTests {
     @Test func fetchData() async throws {
         // Any HTTP/HTTPS request here will record an Issue
     }
 }
 ```
+
+> **Important:** `.serialized` is required — Airgap uses global state that would race with parallel test execution.
 
 The trait automatically sets the violation handler to `Issue.record()` and activates/deactivates the guard around each test.
 
@@ -159,7 +161,7 @@ func testWithRealNetwork() {
 }
 
 // Swift Testing — opt out a single test within a guarded suite
-@Suite(.airgapped)
+@Suite(.airgapped, .serialized)
 struct MyTests {
     @Test func integrationTest() async throws {
         Airgap.allowNetworkAccess()
@@ -212,9 +214,9 @@ By default, Airgap fails tests immediately on any violation (`.fail` mode). Use 
 ### Swift Testing trait
 
 ```swift
-@Suite(.airgapped(mode: .warn))
+@Suite(.airgapped(mode: .warn), .serialized)
 struct MyTests {
-    // Violations are recorded but don't fail the test
+    // Violations appear as known issues in the test navigator via withKnownIssue
 }
 ```
 
@@ -280,6 +282,16 @@ See the [Warning Mode](#warning-mode) section above for a complete example.
 Set `AIRGAP_REPORT_PATH=/path/to/report.txt` in your Xcode scheme's environment variables. The report is written automatically when the test bundle finishes (observer) or during tearDown (test case).
 
 ### Report format
+
+Use a `.json` extension to get structured JSON output for CI/CD pipelines:
+
+```swift
+Airgap.reportPath = "/tmp/airgap-report.json"
+```
+
+The JSON format encodes the `Violation` array directly using `JSONEncoder` with ISO 8601 dates.
+
+For human-readable output, use any other extension (e.g., `.txt`):
 
 ```
 Airgap Violation Report
@@ -382,6 +394,7 @@ The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses 
 | `URLSession.shared` | Yes |
 | `URLSession(configuration: .default)` | Yes |
 | `URLSession(configuration: .ephemeral)` | Yes |
+| Custom `URLSessionConfiguration` (e.g., `.background`) | Yes — for sessions created after `activate()` (via session-init swizzle) |
 | Alamofire, Moya, and other URLSession-backed libraries | Yes |
 | `http://` URLs | Yes |
 | `https://` URLs | Yes |
@@ -391,24 +404,26 @@ The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses 
 | Source | Reason |
 |--------|--------|
 | `file://` URLs | Non-HTTP scheme, intentionally allowed |
-| `data://` URLs | Non-HTTP scheme, intentionally allowed |
+| `data:` URLs | Non-HTTP scheme, intentionally allowed |
 | `Data(contentsOf: remoteURL)` | Uses a lower-level loading path that bypasses URLProtocol |
-| Fully custom `URLSessionConfiguration` (not `.default`/`.ephemeral`) | Rare; configuration swizzling only covers standard factory methods |
+| Sessions created before `activate()` with a custom configuration | The session already exists; swizzling can only inject at creation time |
 
 ## How It Works
 
 1. **URLProtocol registration** — `URLProtocol.registerClass()` intercepts requests made through `URLSession.shared`
-2. **Configuration swizzling** — The getters for `URLSessionConfiguration.default` and `.ephemeral` are swizzled to inject the guard protocol into every new configuration, catching custom sessions
-3. **Scheme filtering** — Only `http://` and `https://` schemes are intercepted; `file://`, `data://`, and others pass through
-4. **Error delivery** — Intercepted requests receive `NSURLErrorNotConnectedToInternet` so code under test gets an error rather than hanging
+2. **Configuration swizzling** — The getters for `URLSessionConfiguration.default` and `.ephemeral` are swizzled to inject the guard protocol into every new configuration
+3. **Session-init swizzling** — The `URLSession` designated initializer is swizzled to inject the guard protocol at session creation time, catching sessions created from configs obtained before `activate()` or from non-standard configs (e.g., `.background`)
+4. **Resume swizzling** — `URLSessionTask.resume()` is swizzled to capture accurate call stacks at the point where user code initiates the request
+5. **Scheme filtering** — Only `http://` and `https://` schemes are intercepted; `file://`, `data:`, and others pass through
+6. **Error delivery** — Intercepted requests receive `NSURLErrorNotConnectedToInternet` so code under test gets an error rather than hanging
 
 ## Troubleshooting
 
 **Tests fail with "Airgap: Blocked request..."**
 Your test is making a real network call. Replace it with a mock or stub, or call `Airgap.allowNetworkAccess()` if the test genuinely needs network access.
 
-**Guard doesn't catch requests from a custom session**
-If the session was created with a fully custom `URLSessionConfiguration` (not `.default` or `.ephemeral`), the guard protocol won't be injected automatically. Manually add `AirgapURLProtocol` to the configuration's `protocolClasses`.
+**Guard doesn't catch requests from a pre-existing session**
+Sessions created after `activate()` are automatically covered, even with custom configurations like `.background`. However, sessions created *before* `activate()` with a non-standard configuration won't have the guard protocol injected. Manually add `AirgapURLProtocol` to the configuration's `protocolClasses` for these cases.
 
 **`Data(contentsOf:)` requests are not caught**
 `Data(contentsOf:)` for remote URLs does not go through URLProtocol. This API is synchronous and discouraged by Apple. Use `URLSession` instead.
