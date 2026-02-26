@@ -77,6 +77,15 @@ public enum Airgap {
         AirgapURLProtocol.isActive
     }
 
+    /// Called when a network violation is detected with the full `Violation` struct.
+    /// Use for structured analytics, CI integration, or custom reporting. Called in addition
+    /// to `violationHandler`; `nil` by default.
+    nonisolated(unsafe) private static var _violationReporter: (@Sendable (Violation) -> Void)?
+    public static var violationReporter: (@Sendable (Violation) -> Void)? {
+        get { lock.withLock { _violationReporter } }
+        set { lock.withLock { _violationReporter = newValue } }
+    }
+
     /// Whether we're running in an XCTest context (vs Swift Testing or standalone).
     ///
     /// Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
@@ -214,6 +223,11 @@ public enum Airgap {
         )
         lock.withLock {
             _violations.append(violation)
+        }
+
+        // Notify the structured reporter if one is configured.
+        if let reporter = violationReporter {
+            reporter(violation)
         }
 
         // XCTest APIs (XCTFail, XCTExpectFailure) must be called on the main thread.

@@ -6,6 +6,7 @@ final class AirgapTests: XCTestCase {
 
     private let capture = ViolationCapture()
     private var originalHandler: (@Sendable (String) -> Void)!
+    private var originalReporter: (@Sendable (Violation) -> Void)?
     private var originalMode: Airgap.Mode!
     private var originalReportPath: String?
     private var originalAllowedHosts: Set<String>!
@@ -14,6 +15,7 @@ final class AirgapTests: XCTestCase {
         super.setUp()
         capture.reset()
         originalHandler = Airgap.violationHandler
+        originalReporter = Airgap.violationReporter
         originalMode = Airgap.mode
         originalReportPath = Airgap.reportPath
         originalAllowedHosts = Airgap.allowedHosts
@@ -22,6 +24,7 @@ final class AirgapTests: XCTestCase {
         Airgap.violationHandler = { message in
             cap.record(message)
         }
+        Airgap.violationReporter = nil
         Airgap.inXCTestContext = true
         Airgap.mode = .fail
         Airgap.reportPath = nil
@@ -32,6 +35,7 @@ final class AirgapTests: XCTestCase {
     override func tearDown() {
         Airgap.deactivate()
         Airgap.violationHandler = originalHandler
+        Airgap.violationReporter = originalReporter
         Airgap.mode = originalMode
         Airgap.reportPath = originalReportPath
         Airgap.allowedHosts = originalAllowedHosts
@@ -72,6 +76,57 @@ final class AirgapTests: XCTestCase {
         Airgap.activate()
         Airgap.deactivate()
         XCTAssertFalse(Airgap.isActive)
+    }
+
+    // MARK: - Violation Reporter
+
+    func testViolationReporterReceivesViolationStruct() {
+        let reporterCapture = ViolationReporterCapture()
+        Airgap.violationReporter = { violation in
+            reporterCapture.record(violation)
+        }
+
+        Airgap.activate()
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/reporter-test")!
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(reporterCapture.violations.count, 1)
+        XCTAssertEqual(reporterCapture.violations.first?.url, "https://example.com/reporter-test")
+        XCTAssertEqual(reporterCapture.violations.first?.httpMethod, "GET")
+    }
+
+    func testViolationReporterCalledAlongsideHandler() {
+        let reporterCapture = ViolationReporterCapture()
+        Airgap.violationReporter = { violation in
+            reporterCapture.record(violation)
+        }
+
+        Airgap.activate()
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/alongside-test")!
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(reporterCapture.violations.count, 1, "Reporter should be called")
+        XCTAssertEqual(capture.count, 1, "Handler should also be called")
+    }
+
+    func testViolationReporterIsNilByDefault() {
+        // setUp clears reporter to nil
+        XCTAssertNil(Airgap.violationReporter)
+    }
+
+    func testViolationReporterCanBeCleared() {
+        Airgap.violationReporter = { _ in }
+        XCTAssertNotNil(Airgap.violationReporter)
+        Airgap.violationReporter = nil
+        XCTAssertNil(Airgap.violationReporter)
     }
 
     // MARK: - Blocking requests
@@ -1369,6 +1424,20 @@ private final class ViolationCapture: @unchecked Sendable {
 
     func reset() {
         lock.withLock { _messages = [] }
+    }
+}
+
+/// Thread-safe violation reporter capture for use in tests with @Sendable closures.
+private final class ViolationReporterCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _violations: [Violation] = []
+
+    var violations: [Violation] {
+        lock.withLock { _violations }
+    }
+
+    func record(_ violation: Violation) {
+        lock.withLock { _violations.append(violation) }
     }
 }
 

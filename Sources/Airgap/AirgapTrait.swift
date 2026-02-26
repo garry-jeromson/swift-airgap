@@ -58,6 +58,7 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
     ) async throws {
         // Save all mutable state
         let previousHandler = Airgap.violationHandler
+        let previousReporter = Airgap.violationReporter
         let previousAllowedHosts = Airgap.allowedHosts
         let previousMode = Airgap.mode
         let previousTestName = AirgapURLProtocol.currentTestName
@@ -92,6 +93,7 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
             }
             Airgap.deactivate()
             Airgap.violationHandler = previousHandler
+            Airgap.violationReporter = previousReporter
             Airgap.allowedHosts = previousAllowedHosts
             Airgap.mode = previousMode
             AirgapURLProtocol.currentTestName = previousTestName
