@@ -15,20 +15,21 @@ No external dependencies. No Xcode project file — pure SwiftPM.
 
 ## Architecture
 
-Four interception mechanisms work together:
+Five interception mechanisms work together:
 
 1. **URLProtocol registration** (`URLProtocol.registerClass`) — catches requests made via `URLSession.shared`
 2. **URLSessionConfiguration swizzling** — swizzles `.default` and `.ephemeral` getters to inject `AirgapURLProtocol` into `protocolClasses`, catching sessions created from standard configurations
 3. **URLSession.init swizzling** — swizzles the designated initializer `initWithConfiguration:delegate:delegateQueue:` to inject `AirgapURLProtocol` at session creation time, catching sessions created from configs obtained before `activate()` or from non-standard configs (e.g., `.background`)
-4. **URLSessionTask.resume() swizzling** — captures accurate call stacks at the point where user code initiates the request (not deep inside URLProtocol machinery)
+4. **URLSessionTask.resume() swizzling** — captures accurate call stacks at the point where user code initiates the request (not deep inside URLProtocol machinery); also intercepts WebSocket tasks directly since URLProtocol cannot intercept WebSocket connections
+5. **WebSocket interception** — `URLSessionWebSocketTask` and `ws://`/`wss://` schemes are detected in the resume swizzle, violations are reported, and the task is cancelled
 
-Intercepted requests receive `NSURLErrorNotConnectedToInternet`. Non-HTTP schemes (file://, data://) pass through.
+Intercepted requests receive a configurable error code (default `NSURLErrorNotConnectedToInternet`). Non-HTTP schemes (file://, data://) pass through.
 
 ## Key Files
 
 | File | Purpose |
 |---|---|
-| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, violation reporting (text and JSON formats) |
+| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, violation reporting (text and JSON formats), `isActive`, `violationReporter`, `errorCode`, `responseDelay`, `withConfiguration()` |
 | `Sources/Airgap/AirgapURLProtocol.swift` | URLProtocol subclass that intercepts HTTP/HTTPS requests |
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
 | `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |

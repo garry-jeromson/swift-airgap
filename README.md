@@ -355,8 +355,9 @@ let json = String(data: data, encoding: .utf8)!
 | `AIRGAP_MODE` | `warn` | Enables warning mode (no test failures) |
 | `AIRGAP_REPORT_PATH` | `/path/to/report.txt` | Writes a violation report to this path |
 | `AIRGAP_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts to allow through |
+| `AIRGAP_ERROR_CODE` | `-1009` | URL error code delivered to intercepted requests |
 
-All three are read by `Airgap.configureFromEnvironment()`, which is called automatically by `AirgapObserver` and `AirgapTestCase`.
+All four are read by `Airgap.configureFromEnvironment()`, which is called automatically by `AirgapObserver` and `AirgapTestCase`.
 
 ## Custom Failure Handling
 
@@ -372,7 +373,72 @@ Airgap.violationHandler = { message in
 }
 ```
 
+### Structured Violation Reporter
+
+In addition to `violationHandler` (which receives a formatted string), you can set `violationReporter` to receive the full `Violation` struct for structured analytics or CI integration:
+
+```swift
+Airgap.violationReporter = { violation in
+    analytics.track("network_violation", properties: [
+        "url": violation.url,
+        "method": violation.httpMethod,
+        "test": violation.testName
+    ])
+}
+```
+
+Both callbacks fire on every violation. Set to `nil` to disable (default).
+
+## Scoped Configuration
+
+Use `Airgap.withConfiguration()` to temporarily override settings for a block of code. All state is saved before and restored after, even if the body throws:
+
+```swift
+Airgap.withConfiguration(mode: .warn, allowedHosts: ["localhost"]) {
+    // Run code with temporary overrides
+}
+// Original settings are restored here
+```
+
+All parameters are optional — only the ones you pass are changed:
+
+```swift
+Airgap.withConfiguration(mode: .warn) {
+    // Only mode is overridden; allowedHosts, errorCode, etc. keep their current values
+}
+```
+
+## Error Customization
+
+### Error Code
+
+By default, intercepted requests receive `NSURLErrorNotConnectedToInternet`. Change this to test specific error handling paths:
+
+```swift
+Airgap.errorCode = NSURLErrorTimedOut
+```
+
+### Response Delay
+
+Add a delay before the error is delivered, useful for testing loading states or timeout handling:
+
+```swift
+Airgap.responseDelay = 2.0  // seconds
+```
+
+Default is `0` (no delay).
+
 ## Advanced
+
+### `Airgap.isActive`
+
+Check whether the network guard is currently active:
+
+```swift
+if Airgap.isActive {
+    // Guard is active
+}
+```
 
 ### `Airgap.inXCTestContext`
 
@@ -398,6 +464,7 @@ The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses 
 | Alamofire, Moya, and other URLSession-backed libraries | Yes |
 | `http://` URLs | Yes |
 | `https://` URLs | Yes |
+| `URLSessionWebSocketTask` (`wss://`, `ws://`) | Yes — detected in the resume swizzle, task is cancelled |
 
 ## What Doesn't Get Blocked
 
@@ -413,9 +480,9 @@ The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses 
 1. **URLProtocol registration** — `URLProtocol.registerClass()` intercepts requests made through `URLSession.shared`
 2. **Configuration swizzling** — The getters for `URLSessionConfiguration.default` and `.ephemeral` are swizzled to inject the guard protocol into every new configuration
 3. **Session-init swizzling** — The `URLSession` designated initializer is swizzled to inject the guard protocol at session creation time, catching sessions created from configs obtained before `activate()` or from non-standard configs (e.g., `.background`)
-4. **Resume swizzling** — `URLSessionTask.resume()` is swizzled to capture accurate call stacks at the point where user code initiates the request
-5. **Scheme filtering** — Only `http://` and `https://` schemes are intercepted; `file://`, `data:`, and others pass through
-6. **Error delivery** — Intercepted requests receive `NSURLErrorNotConnectedToInternet` so code under test gets an error rather than hanging
+4. **Resume swizzling** — `URLSessionTask.resume()` is swizzled to capture accurate call stacks at the point where user code initiates the request, and to intercept WebSocket tasks directly (since URLProtocol cannot intercept WebSocket connections)
+5. **Scheme filtering** — Only `http://`, `https://`, `ws://`, and `wss://` schemes are intercepted; `file://`, `data:`, and others pass through
+6. **Error delivery** — Intercepted requests receive a configurable error code (default `NSURLErrorNotConnectedToInternet`) with optional delay, so code under test gets an error rather than hanging
 
 ## Troubleshooting
 
