@@ -1,3 +1,4 @@
+#if swift(>=6.1)
 import Testing
 @testable import Airgap
 
@@ -27,3 +28,4 @@ extension Trait where Self == ScopeLockTrait {
     /// Acquires `Airgap.scopeLock` for the duration of each test in this scope.
     static var scopeLocked: Self { Self() }
 }
+#endif

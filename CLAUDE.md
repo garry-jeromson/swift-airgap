@@ -33,13 +33,13 @@ Intercepted requests receive a configurable error code (default `NSURLErrorNotCo
 | `Sources/Airgap/AirgapURLProtocol.swift` | URLProtocol subclass that intercepts HTTP/HTTPS requests |
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
 | `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |
-| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation; warn mode uses `withKnownIssue` |
+| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation; warn mode uses `withKnownIssue`. Runtime scoping (`TestScoping`) requires Swift 6.1+; on 6.0 the trait is metadata-only. |
 | `Sources/Airgap/AsyncMutex.swift` | Async-compatible mutex for serializing `.airgapped` test scopes |
 | `Sources/Airgap/Violation.swift` | Sendable/Codable data model for captured violations |
 
 ## Conventions
 
-- **Swift 6.0** with strict concurrency checking
+- **Swift 6.0** with strict concurrency checking (`.airgapped` trait scoping requires Swift 6.1+)
 - **No external dependencies**
 - **Thread safety** via `NSLock` — all mutable shared state is lock-protected
 - **Platforms**: iOS 16+, macOS 13+, tvOS 16+, watchOS 9+

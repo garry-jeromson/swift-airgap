@@ -141,6 +141,8 @@ struct MyTests {
 
 The trait automatically serializes `.airgapped` scopes process-wide, so concurrent suites don't corrupt each other's configuration. Adding `.serialized` is optional but avoids lock contention overhead if your suites would otherwise run in parallel.
 
+> **Note:** The `.airgapped` trait's runtime scoping (automatic activate/deactivate around each test) requires **Swift 6.1+** (Xcode 16.3+). On Swift 6.0, the trait compiles and can be applied as metadata, but `provideScope` is absent — use manual `Airgap.activate()`/`deactivate()` calls instead.
+
 The trait automatically sets the violation handler to `Issue.record()` and activates/deactivates the guard around each test.
 
 To opt out an individual test within a guarded suite, call `Airgap.allowNetworkAccess()` at the start of the test body — see [Allowing Network Access](#allowing-network-access).

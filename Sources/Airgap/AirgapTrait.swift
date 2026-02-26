@@ -37,8 +37,13 @@ import Testing
 /// ## Violation reporting
 ///
 /// Violations are reported via `Issue.record()` automatically.
+///
+/// > Note: The `provideScope` runtime scoping (which activates/deactivates Airgap around each
+/// > test) requires Swift 6.1+ (`TestScoping` protocol). On Swift 6.0, the trait compiles and
+/// > can be applied as metadata, but has no runtime scoping effect — use manual
+/// > `Airgap.activate()`/`deactivate()` calls instead.
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
-public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
+public struct AirgapTrait: TestTrait, SuiteTrait {
 
     /// Additional hosts to allow through the guard for the duration of this scope.
     private let additionalAllowedHosts: Set<String>
@@ -50,7 +55,11 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         self.modeOverride = mode
         self.additionalAllowedHosts = allowedHosts
     }
+}
 
+#if swift(>=6.1)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+extension AirgapTrait: TestScoping {
     /// Activates Airgap for the duration of a single test or suite scope.
     ///
     /// Acquires `Airgap.scopeLock` (unless already held by an outer scope), saves all mutable
@@ -126,6 +135,7 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         }
     }
 }
+#endif
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 extension Trait where Self == AirgapTrait {
