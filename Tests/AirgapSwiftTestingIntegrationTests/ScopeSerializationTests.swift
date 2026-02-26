@@ -7,7 +7,7 @@ import Foundation
 /// would deadlock (the trait holds the lock, then the test tries to acquire it again).
 @Suite struct ScopeSerializationTests {
 
-    @Test func `Scope lock serializes concurrent access`() async {
+    @Test("Scope lock serializes concurrent access") func scopeLockSerializesConcurrentAccess() async {
         // Verify that the scopeLock prevents concurrent scopes from overlapping.
         // Two tasks try to acquire the lock, modify global state, sleep, and check
         // that their state wasn't stomped by the other task.

@@ -6,12 +6,12 @@ extension AllAirgapSwiftTestingTests {
 
     @Suite struct ViolationSummaryTests {
 
-        @Test func `Summary is nil with no violations`() {
+        @Test("Summary is nil with no violations") func summaryIsNilWithNoViolations() {
             Airgap.clearViolations()
             #expect(Airgap.violationSummary() == nil)
         }
 
-        @Test func `Summary contains violation count`() {
+        @Test("Summary contains violation count") func summaryContainsViolationCount() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.clearViolations()
@@ -37,7 +37,7 @@ extension AllAirgapSwiftTestingTests {
 
     @Suite struct ViolationCollectionTests {
 
-        @Test func `Violations collected without report path`() {
+        @Test("Violations collected without report path") func violationsCollectedWithoutReportPath() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.reportPath = nil

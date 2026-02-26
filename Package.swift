@@ -1,6 +1,14 @@
 // swift-tools-version: 6.0
 
+import Foundation
 import PackageDescription
+
+let swiftLintPlugins: [Target.PluginUsage]
+if ProcessInfo.processInfo.environment["DISABLE_SWIFTLINT"] == nil {
+    swiftLintPlugins = [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+} else {
+    swiftLintPlugins = []
+}
 
 let package = Package(
     name: "Airgap",
@@ -15,22 +23,22 @@ let package = Package(
     targets: [
         .target(
             name: "Airgap",
-            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+            plugins: swiftLintPlugins
         ),
         .testTarget(
             name: "AirgapXCTestIntegrationTests",
             dependencies: ["Airgap"],
-            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+            plugins: swiftLintPlugins
         ),
         .testTarget(
             name: "AirgapUnitTests",
             dependencies: ["Airgap"],
-            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+            plugins: swiftLintPlugins
         ),
         .testTarget(
             name: "AirgapSwiftTestingIntegrationTests",
             dependencies: ["Airgap"],
-            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+            plugins: swiftLintPlugins
         ),
     ]
 )

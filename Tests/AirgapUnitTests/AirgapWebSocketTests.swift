@@ -22,7 +22,7 @@ final class AirgapWebSocketTests {
 
     // MARK: - WebSocket interception
 
-    @Test func `WebSocket task produces violation`() {
+    @Test("WebSocket task produces violation") func webSocketTaskProducesViolation() {
         Airgap.activate()
 
         let session = URLSession(configuration: .default)
@@ -34,7 +34,7 @@ final class AirgapWebSocketTests {
         #expect(Airgap.violations.first?.url.contains("example.com/ws") ?? false)
     }
 
-    @Test func `Non-TLS WebSocket task produces violation`() {
+    @Test("Non-TLS WebSocket task produces violation") func nonTLSWebSocketTaskProducesViolation() {
         Airgap.activate()
 
         let session = URLSession(configuration: .default)
@@ -45,7 +45,7 @@ final class AirgapWebSocketTests {
         #expect(Airgap.violations.first?.url.contains("example.com/ws") ?? false)
     }
 
-    @Test func `WebSocket violation contains URL and method`() {
+    @Test("WebSocket violation contains URL and method") func webSocketViolationContainsURLAndMethod() {
         Airgap.activate()
 
         let session = URLSession(configuration: .default)
@@ -58,7 +58,7 @@ final class AirgapWebSocketTests {
         #expect(violation?.httpMethod == "GET")
     }
 
-    @Test func `WebSocket task not intercepted when inactive`() {
+    @Test("WebSocket task not intercepted when inactive") func webSocketTaskNotInterceptedWhenInactive() {
         // Don't activate
         let session = URLSession(configuration: .default)
         let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
@@ -67,7 +67,7 @@ final class AirgapWebSocketTests {
         #expect(Airgap.violations.count == 0)
     }
 
-    @Test func `WebSocket task respects allowed hosts`() {
+    @Test("WebSocket task respects allowed hosts") func webSocketTaskRespectsAllowedHosts() {
         Airgap.allowedHosts = ["example.com"]
         Airgap.activate()
 
@@ -78,7 +78,7 @@ final class AirgapWebSocketTests {
         #expect(Airgap.violations.count == 0, "Allowed host should not produce a violation")
     }
 
-    @Test func `WebSocket task is cancelled after violation`() async throws {
+    @Test("WebSocket task is cancelled after violation") func webSocketTaskIsCancelledAfterViolation() async throws {
         Airgap.activate()
 
         let session = URLSession(configuration: .default)

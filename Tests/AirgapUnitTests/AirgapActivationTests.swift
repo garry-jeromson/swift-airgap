@@ -29,33 +29,33 @@ final class AirgapActivationTests {
 
     // MARK: - Activation / Deactivation
 
-    @Test func `Activate registers protocol`() {
+    @Test("Activate registers protocol") func activateRegistersProtocol() {
         Airgap.activate()
         #expect(AirgapURLProtocol.isActive)
     }
 
-    @Test func `Deactivate unregisters protocol`() {
+    @Test("Deactivate unregisters protocol") func deactivateUnregistersProtocol() {
         Airgap.activate()
         Airgap.deactivate()
         #expect(!AirgapURLProtocol.isActive)
     }
 
-    @Test func `Double activate is idempotent`() {
+    @Test("Double activate is idempotent") func doubleActivateIsIdempotent() {
         Airgap.activate()
         Airgap.activate()
         #expect(AirgapURLProtocol.isActive)
     }
 
-    @Test func `isActive returns false before activation`() {
+    @Test("isActive returns false before activation") func isActiveReturnsFalseBeforeActivation() {
         #expect(!Airgap.isActive)
     }
 
-    @Test func `isActive returns true after activation`() {
+    @Test("isActive returns true after activation") func isActiveReturnsTrueAfterActivation() {
         Airgap.activate()
         #expect(Airgap.isActive)
     }
 
-    @Test func `isActive returns false after deactivation`() {
+    @Test("isActive returns false after deactivation") func isActiveReturnsFalseAfterDeactivation() {
         Airgap.activate()
         Airgap.deactivate()
         #expect(!Airgap.isActive)
@@ -63,7 +63,7 @@ final class AirgapActivationTests {
 
     // MARK: - Allow network access
 
-    @Test func `Allow network access disables guard`() {
+    @Test("Allow network access disables guard") func allowNetworkAccessDisablesGuard() {
         Airgap.activate()
         Airgap.allowNetworkAccess()
 
@@ -74,7 +74,7 @@ final class AirgapActivationTests {
         #expect(capture.isEmpty)
     }
 
-    @Test func `Activate resets allow flag`() {
+    @Test("Activate resets allow flag") func activateResetsAllowFlag() {
         Airgap.activate()
         Airgap.allowNetworkAccess()
 
@@ -89,7 +89,7 @@ final class AirgapActivationTests {
 
     // MARK: - Inactive guard
 
-    @Test func `No violation when inactive`() {
+    @Test("No violation when inactive") func noViolationWhenInactive() {
         // Guard is not activated — requests should not be intercepted.
         // We verify by checking that canInit returns false.
         let url = URL(string: "https://httpbin.org/get")!
@@ -101,7 +101,7 @@ final class AirgapActivationTests {
 
     // MARK: - AirgapTestCase lifecycle
 
-    @Test func `AirgapTestCase lifecycle`() {
+    @Test("AirgapTestCase lifecycle") func airgapTestCaseLifecycle() {
         let testCase = LifecycleTestCase()
 
         // Simulate setUp

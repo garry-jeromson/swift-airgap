@@ -29,7 +29,7 @@ final class AirgapAllowedHostsTests {
 
     // MARK: - Allowed hosts
 
-    @Test func `Allowed host is not blocked`() {
+    @Test("Allowed host is not blocked") func allowedHostIsNotBlocked() {
         Airgap.allowedHosts = ["example.com"]
         Airgap.activate()
 
@@ -40,7 +40,7 @@ final class AirgapAllowedHostsTests {
         #expect(capture.isEmpty)
     }
 
-    @Test func `Non-allowed host is blocked`() async {
+    @Test("Non-allowed host is blocked") func nonAllowedHostIsBlocked() async {
         Airgap.allowedHosts = ["localhost"]
         Airgap.activate()
 
@@ -50,7 +50,7 @@ final class AirgapAllowedHostsTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `Allowed hosts persist across activations`() {
+    @Test("Allowed hosts persist across activations") func allowedHostsPersistAcrossActivations() {
         Airgap.allowedHosts = ["localhost", "127.0.0.1"]
         Airgap.activate()
         Airgap.deactivate()
@@ -64,7 +64,7 @@ final class AirgapAllowedHostsTests {
         #expect(!AirgapURLProtocol.canInit(with: request))
     }
 
-    @Test func `Allowed hosts can be modified incrementally`() {
+    @Test("Allowed hosts can be modified incrementally") func allowedHostsCanBeModifiedIncrementally() {
         Airgap.allowedHosts = []
         Airgap.allowedHosts.insert("localhost")
         Airgap.activate()
@@ -76,7 +76,7 @@ final class AirgapAllowedHostsTests {
         #expect(AirgapURLProtocol.canInit(with: URLRequest(url: externalURL)))
     }
 
-    @Test func `Allowed hosts with multiple hosts`() {
+    @Test("Allowed hosts with multiple hosts") func allowedHostsWithMultipleHosts() {
         Airgap.allowedHosts = ["localhost", "127.0.0.1", "mock-server.local"]
         Airgap.activate()
 
@@ -91,11 +91,11 @@ final class AirgapAllowedHostsTests {
                 "Non-allowed host should be blocked")
     }
 
-    @Test func `Allowed hosts empty by default`() {
+    @Test("Allowed hosts empty by default") func allowedHostsEmptyByDefault() {
         #expect(Airgap.allowedHosts.isEmpty)
     }
 
-    @Test func `Allowed hosts with http scheme`() {
+    @Test("Allowed hosts with http scheme") func allowedHostsWithHTTPScheme() {
         Airgap.allowedHosts = ["localhost"]
         Airgap.activate()
 
@@ -103,7 +103,7 @@ final class AirgapAllowedHostsTests {
         #expect(!AirgapURLProtocol.canInit(with: URLRequest(url: url)))
     }
 
-    @Test func `Allowed hosts combined with allow network access`() {
+    @Test("Allowed hosts combined with allow network access") func allowedHostsCombinedWithAllowNetworkAccess() {
         Airgap.allowedHosts = ["localhost"]
         Airgap.activate()
         Airgap.allowNetworkAccess()
@@ -114,7 +114,7 @@ final class AirgapAllowedHostsTests {
 
     // MARK: - Wildcard host matching
 
-    @Test func `Wildcard allowed host matches subdomain`() {
+    @Test("Wildcard allowed host matches subdomain") func wildcardAllowedHostMatchesSubdomain() {
         Airgap.allowedHosts = ["*.example.com"]
         Airgap.activate()
 
@@ -123,7 +123,7 @@ final class AirgapAllowedHostsTests {
                 "*.example.com should match api.example.com")
     }
 
-    @Test func `Wildcard allowed host matches base domain`() {
+    @Test("Wildcard allowed host matches base domain") func wildcardAllowedHostMatchesBaseDomain() {
         Airgap.allowedHosts = ["*.example.com"]
         Airgap.activate()
 
@@ -132,7 +132,7 @@ final class AirgapAllowedHostsTests {
                 "*.example.com should also match example.com itself")
     }
 
-    @Test func `Wildcard allowed host matches deep subdomain`() {
+    @Test("Wildcard allowed host matches deep subdomain") func wildcardAllowedHostMatchesDeepSubdomain() {
         Airgap.allowedHosts = ["*.example.com"]
         Airgap.activate()
 
@@ -141,7 +141,7 @@ final class AirgapAllowedHostsTests {
                 "*.example.com should match deep.sub.example.com")
     }
 
-    @Test func `Wildcard allowed host does not match different domain`() async {
+    @Test("Wildcard allowed host does not match different domain") func wildcardAllowedHostDoesNotMatchDifferentDomain() async {
         Airgap.allowedHosts = ["*.example.com"]
         Airgap.activate()
 
@@ -151,7 +151,7 @@ final class AirgapAllowedHostsTests {
         #expect(Airgap.violations.count == 1, "*.example.com should not match notexample.com")
     }
 
-    @Test func `Wildcard allowed host is case insensitive`() {
+    @Test("Wildcard allowed host is case insensitive") func wildcardAllowedHostIsCaseInsensitive() {
         Airgap.allowedHosts = ["*.Example.COM"]
         Airgap.activate()
 
@@ -160,7 +160,7 @@ final class AirgapAllowedHostsTests {
                 "Wildcard matching should be case-insensitive")
     }
 
-    @Test func `Mixed exact and wildcard hosts`() {
+    @Test("Mixed exact and wildcard hosts") func mixedExactAndWildcardHosts() {
         Airgap.allowedHosts = ["localhost", "*.mock-server.local"]
         Airgap.activate()
 
@@ -176,7 +176,7 @@ final class AirgapAllowedHostsTests {
 
     // MARK: - Case-insensitive host matching
 
-    @Test func `Allowed hosts case insensitive`() {
+    @Test("Allowed hosts case insensitive") func allowedHostsCaseInsensitive() {
         Airgap.allowedHosts = ["Example.COM"]
         Airgap.activate()
 
@@ -185,7 +185,7 @@ final class AirgapAllowedHostsTests {
                 "Host matching should be case-insensitive")
     }
 
-    @Test func `Allowed hosts mixed case in URL`() {
+    @Test("Allowed hosts mixed case in URL") func allowedHostsMixedCaseInURL() {
         Airgap.allowedHosts = ["localhost"]
         Airgap.activate()
 
@@ -196,7 +196,7 @@ final class AirgapAllowedHostsTests {
 
     // MARK: - IPv6 allowed hosts
 
-    @Test func `IPv6 allowed host`() {
+    @Test("IPv6 allowed host") func IPv6AllowedHost() {
         Airgap.allowedHosts = ["::1"]
         Airgap.activate()
 

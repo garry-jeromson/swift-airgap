@@ -38,7 +38,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - Warning mode
 
-    @Test func `Warn mode does not fail test`() async {
+    @Test("Warn mode does not fail test") func warnModeDoesNotFailTest() async {
         Airgap.mode = .warn
         Airgap.activate()
 
@@ -49,7 +49,7 @@ final class AirgapConfigurationTests {
         #expect(capture.count == 1)
     }
 
-    @Test func `Warn mode calls violation handler directly`() {
+    @Test("Warn mode calls violation handler directly") func warnModeCallsViolationHandlerDirectly() {
         Airgap.mode = .warn
 
         // Call reportViolation directly on the main thread to avoid async timing issues
@@ -59,7 +59,7 @@ final class AirgapConfigurationTests {
         #expect(capture.messages.first?.contains("warn-direct") ?? false)
     }
 
-    @Test func `Fail mode calls violation handler directly`() async {
+    @Test("Fail mode calls violation handler directly") func failModeCallsViolationHandlerDirectly() async {
         Airgap.mode = .fail
         Airgap.activate()
 
@@ -73,7 +73,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - Error code and response delay
 
-    @Test func `Custom error code is delivered`() async {
+    @Test("Custom error code is delivered") func customErrorCodeIsDelivered() async {
         Airgap.errorCode = NSURLErrorTimedOut
         Airgap.activate()
 
@@ -87,7 +87,7 @@ final class AirgapConfigurationTests {
         }
     }
 
-    @Test func `Default error code is not connected to internet`() async {
+    @Test("Default error code is not connected to internet") func defaultErrorCodeIsNotConnectedToInternet() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/default-error-test")!
@@ -100,7 +100,7 @@ final class AirgapConfigurationTests {
         }
     }
 
-    @Test func `Response delay adds latency`() async {
+    @Test("Response delay adds latency") func responseDelayAddsLatency() async {
         Airgap.responseDelay = 0.5
         Airgap.activate()
 
@@ -111,13 +111,13 @@ final class AirgapConfigurationTests {
         #expect(elapsed >= 0.4, "Response should be delayed by at least 0.4s")
     }
 
-    @Test func `Default response delay is zero`() {
+    @Test("Default response delay is zero") func defaultResponseDelayIsZero() {
         #expect(Airgap.responseDelay == 0)
     }
 
     // MARK: - withConfiguration scoping
 
-    @Test func `With configuration restores mode`() {
+    @Test("With configuration restores mode") func withConfigurationRestoresMode() {
         Airgap.mode = .fail
         Airgap.withConfiguration(mode: .warn) {
             #expect(Airgap.mode == .warn)
@@ -125,7 +125,7 @@ final class AirgapConfigurationTests {
         #expect(Airgap.mode == .fail)
     }
 
-    @Test func `With configuration restores allowed hosts`() {
+    @Test("With configuration restores allowed hosts") func withConfigurationRestoresAllowedHosts() {
         Airgap.allowedHosts = ["original.com"]
         Airgap.withConfiguration(allowedHosts: ["override.com"]) {
             #expect(Airgap.allowedHosts == ["override.com"])
@@ -133,7 +133,7 @@ final class AirgapConfigurationTests {
         #expect(Airgap.allowedHosts == ["original.com"])
     }
 
-    @Test func `With configuration restores handler`() {
+    @Test("With configuration restores handler") func withConfigurationRestoresHandler() {
         let outerCapture = ViolationCapture()
         Airgap.violationHandler = { outerCapture.record($0) }
 
@@ -152,7 +152,7 @@ final class AirgapConfigurationTests {
         #expect(outerCapture.count == 1, "Outer handler should be restored after withConfiguration")
     }
 
-    @Test func `With configuration restores on throw`() {
+    @Test("With configuration restores on throw") func withConfigurationRestoresOnThrow() {
         Airgap.mode = .fail
         do {
             try Airgap.withConfiguration(mode: .warn) {
@@ -165,7 +165,7 @@ final class AirgapConfigurationTests {
         #expect(Airgap.mode == .fail)
     }
 
-    @Test func `With configuration restores error code`() {
+    @Test("With configuration restores error code") func withConfigurationRestoresErrorCode() {
         Airgap.errorCode = NSURLErrorNotConnectedToInternet
         Airgap.withConfiguration(errorCode: NSURLErrorTimedOut) {
             #expect(Airgap.errorCode == NSURLErrorTimedOut)
@@ -173,7 +173,7 @@ final class AirgapConfigurationTests {
         #expect(Airgap.errorCode == NSURLErrorNotConnectedToInternet)
     }
 
-    @Test func `With configuration restores response delay`() {
+    @Test("With configuration restores response delay") func withConfigurationRestoresResponseDelay() {
         Airgap.responseDelay = 0
         Airgap.withConfiguration(responseDelay: 2.5) {
             #expect(Airgap.responseDelay == 2.5)
@@ -181,7 +181,7 @@ final class AirgapConfigurationTests {
         #expect(Airgap.responseDelay == 0)
     }
 
-    @Test func `With configuration partial override keeps other settings`() {
+    @Test("With configuration partial override keeps other settings") func withConfigurationPartialOverrideKeepsOtherSettings() {
         Airgap.mode = .fail
         Airgap.errorCode = 42
         Airgap.withConfiguration(mode: .warn) {
@@ -194,7 +194,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - configureFromEnvironment
 
-    @Test func `configureFromEnvironment does not crash with no env vars`() {
+    @Test("configureFromEnvironment does not crash with no env vars") func configureFromEnvironmentDoesNotCrashWithNoEnvVars() {
         Airgap.mode = .fail
         Airgap.reportPath = nil
         Airgap.configureFromEnvironment()
@@ -202,7 +202,7 @@ final class AirgapConfigurationTests {
         #expect(Airgap.reportPath == nil)
     }
 
-    @Test func `configureFromEnvironment is idempotent`() {
+    @Test("configureFromEnvironment is idempotent") func configureFromEnvironmentIsIdempotent() {
         Airgap.configureFromEnvironment()
         let modeAfterFirst = Airgap.mode
         let pathAfterFirst = Airgap.reportPath
@@ -214,19 +214,19 @@ final class AirgapConfigurationTests {
         #expect(Airgap.allowedHosts == hostsAfterFirst, "Calling configureFromEnvironment twice should not duplicate hosts")
     }
 
-    @Test func `configureFromEnvironment resets mode when env var absent`() {
+    @Test("configureFromEnvironment resets mode when env var absent") func configureFromEnvironmentResetsModeWhenEnvVarAbsent() {
         Airgap.mode = .warn
         Airgap.configureFromEnvironment()
         #expect(Airgap.mode == .fail, "configureFromEnvironment should reset mode to .fail when AIRGAP_MODE is not set")
     }
 
-    @Test func `configureFromEnvironment resets report path when env var absent`() {
+    @Test("configureFromEnvironment resets report path when env var absent") func configureFromEnvironmentResetsReportPathWhenEnvVarAbsent() {
         Airgap.reportPath = "/some/path/report.txt"
         Airgap.configureFromEnvironment()
         #expect(Airgap.reportPath == nil, "configureFromEnvironment should reset reportPath when AIRGAP_REPORT_PATH is not set")
     }
 
-    @Test func `configureFromEnvironment does not accumulate hosts`() {
+    @Test("configureFromEnvironment does not accumulate hosts") func configureFromEnvironmentDoesNotAccumulateHosts() {
         Airgap.allowedHosts = ["manually-added.com"]
         Airgap.configureFromEnvironment()
         #expect(!Airgap.allowedHosts.contains("manually-added.com"),
@@ -235,7 +235,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - Mode is not reset by activate
 
-    @Test func `Activate does not reset mode`() {
+    @Test("Activate does not reset mode") func activateDoesNotResetMode() {
         Airgap.mode = .warn
         Airgap.activate()
         #expect(Airgap.mode == .warn)
@@ -246,7 +246,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - currentTestName management
 
-    @Test func `Current test name is restorable`() {
+    @Test("Current test name is restorable") func currentTestNameIsRestorable() {
         let original = AirgapURLProtocol.currentTestName
         AirgapURLProtocol.currentTestName = "OuterScope/testOuter"
 
@@ -262,7 +262,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - Violation reporter
 
-    @Test func `Violation reporter receives violation struct`() async {
+    @Test("Violation reporter receives violation struct") func violationReporterReceivesViolationStruct() async {
         let reporterCapture = ViolationReporterCapture()
         Airgap.violationReporter = { violation in
             reporterCapture.record(violation)
@@ -277,7 +277,7 @@ final class AirgapConfigurationTests {
         #expect(reporterCapture.violations.first?.httpMethod == "GET")
     }
 
-    @Test func `Violation reporter called alongside handler`() async {
+    @Test("Violation reporter called alongside handler") func violationReporterCalledAlongsideHandler() async {
         let reporterCapture = ViolationReporterCapture()
         Airgap.violationReporter = { violation in
             reporterCapture.record(violation)
@@ -292,11 +292,11 @@ final class AirgapConfigurationTests {
         #expect(capture.count == 1, "Handler should also be called")
     }
 
-    @Test func `Violation reporter is nil by default`() {
+    @Test("Violation reporter is nil by default") func violationReporterIsNilByDefault() {
         #expect(Airgap.violationReporter == nil)
     }
 
-    @Test func `Violation reporter can be cleared`() {
+    @Test("Violation reporter can be cleared") func violationReporterCanBeCleared() {
         Airgap.violationReporter = { _ in }
         #expect(Airgap.violationReporter != nil)
         Airgap.violationReporter = nil
@@ -305,7 +305,7 @@ final class AirgapConfigurationTests {
 
     // MARK: - Concurrent handler mutation
 
-    @Test func `Concurrent handler mutation does not crash`() {
+    @Test("Concurrent handler mutation does not crash") func concurrentHandlerMutationDoesNotCrash() {
         Airgap.activate()
 
         let queue = DispatchQueue(label: "handler-mutation", attributes: .concurrent)

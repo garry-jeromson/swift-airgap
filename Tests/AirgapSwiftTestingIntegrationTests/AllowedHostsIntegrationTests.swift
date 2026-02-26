@@ -6,7 +6,7 @@ extension AllAirgapSwiftTestingTests {
 
     @Suite struct AllowedHostsTests {
 
-        @Test func `Allowed host is not blocked`() {
+        @Test("Allowed host is not blocked") func allowedHostIsNotBlocked() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["example.com"]
@@ -23,7 +23,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.isEmpty)
         }
 
-        @Test func `Non-allowed host is blocked`() {
+        @Test("Non-allowed host is blocked") func nonAllowedHostIsBlocked() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["localhost"]
@@ -44,7 +44,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test func `Multiple allowed hosts work`() {
+        @Test("Multiple allowed hosts work") func multipleAllowedHostsWork() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["localhost", "127.0.0.1"]

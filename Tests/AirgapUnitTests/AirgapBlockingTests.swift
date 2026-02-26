@@ -39,7 +39,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Blocking requests
 
-    @Test func `URLSession.shared data task is blocked`() async {
+    @Test("URLSession.shared data task is blocked") func uRLSessionSharedDataTaskIsBlocked() async {
         Airgap.activate()
 
         let url = URL(string: "https://httpbin.org/get")!
@@ -53,7 +53,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `URLSession with default config is blocked`() async {
+    @Test("URLSession with default config is blocked") func uRLSessionWithDefaultConfigIsBlocked() async {
         Airgap.activate()
 
         let config = URLSessionConfiguration.default
@@ -70,7 +70,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `URLSession with ephemeral config is blocked`() async {
+    @Test("URLSession with ephemeral config is blocked") func uRLSessionWithEphemeralConfigIsBlocked() async {
         Airgap.activate()
 
         let config = URLSessionConfiguration.ephemeral
@@ -87,7 +87,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `HTTP scheme is blocked`() async {
+    @Test("HTTP scheme is blocked") func HTTPSchemeIsBlocked() async {
         Airgap.activate()
 
         let url = URL(string: "http://httpbin.org/get")!
@@ -103,7 +103,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Non-HTTP schemes
 
-    @Test func `Local file URL is not blocked`() async {
+    @Test("Local file URL is not blocked") func localFileURLIsNotBlocked() async {
         Airgap.activate()
 
         let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("networkguard-test.txt")
@@ -117,7 +117,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Non-GET HTTP methods
 
-    @Test func `POST method is blocked`() async {
+    @Test("POST method is blocked") func pOSTMethodIsBlocked() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/post")!)
@@ -131,7 +131,7 @@ final class AirgapBlockingTests {
         #expect(capture.messages.first?.contains("POST") ?? false)
     }
 
-    @Test func `PUT method is blocked`() async {
+    @Test("PUT method is blocked") func pUTMethodIsBlocked() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/put")!)
@@ -144,7 +144,7 @@ final class AirgapBlockingTests {
         #expect(capture.messages.first?.contains("PUT") ?? false)
     }
 
-    @Test func `DELETE method is blocked`() async {
+    @Test("DELETE method is blocked") func dELETEMethodIsBlocked() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/delete")!)
@@ -157,7 +157,7 @@ final class AirgapBlockingTests {
         #expect(capture.messages.first?.contains("DELETE") ?? false)
     }
 
-    @Test func `PATCH method is blocked`() async {
+    @Test("PATCH method is blocked") func pATCHMethodIsBlocked() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/patch")!)
@@ -170,7 +170,7 @@ final class AirgapBlockingTests {
         #expect(capture.messages.first?.contains("PATCH") ?? false)
     }
 
-    @Test func `HEAD method is blocked`() async {
+    @Test("HEAD method is blocked") func hEADMethodIsBlocked() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/head")!)
@@ -185,7 +185,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Upload and download tasks
 
-    @Test func `Upload task is blocked`() async {
+    @Test("Upload task is blocked") func uploadTaskIsBlocked() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/upload")!)
@@ -202,7 +202,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `Download task is blocked`() async {
+    @Test("Download task is blocked") func downloadTaskIsBlocked() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/file.zip")!
@@ -219,7 +219,7 @@ final class AirgapBlockingTests {
 
     // MARK: - URL edge cases
 
-    @Test func `URL with query string is blocked`() async {
+    @Test("URL with query string is blocked") func URLWithQueryStringIsBlocked() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api?param=value&other=test")!
@@ -233,7 +233,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `URL with fragment is blocked`() {
+    @Test("URL with fragment is blocked") func URLWithFragmentIsBlocked() {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api#section")!
@@ -242,7 +242,7 @@ final class AirgapBlockingTests {
         #expect(AirgapURLProtocol.canInit(with: request))
     }
 
-    @Test func `URL with port is blocked`() async {
+    @Test("URL with port is blocked") func URLWithPortIsBlocked() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com:8443/api")!
@@ -256,7 +256,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1)
     }
 
-    @Test func `URL with basic auth is blocked`() {
+    @Test("URL with basic auth is blocked") func URLWithBasicAuthIsBlocked() {
         Airgap.activate()
 
         let url = URL(string: "https://user:password@example.com/api")!
@@ -267,7 +267,7 @@ final class AirgapBlockingTests {
 
     // MARK: - data: scheme pass-through
 
-    @Test func `data URL is not intercepted`() {
+    @Test("data URL is not intercepted") func dataURLIsNotIntercepted() {
         Airgap.activate()
 
         let url = URL(string: "data:text/plain;base64,SGVsbG8=")!
@@ -279,7 +279,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Custom URLProtocol coexistence
 
-    @Test func `Custom URLProtocol coexists with Airgap`() {
+    @Test("Custom URLProtocol coexists with Airgap") func customURLProtocolCoexistsWithAirgap() {
         URLProtocol.registerClass(MockSchemeProtocol.self)
         defer { URLProtocol.unregisterClass(MockSchemeProtocol.self) }
 
@@ -300,7 +300,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Combine dataTaskPublisher
 
-    @Test func `Combine dataTaskPublisher is intercepted`() async {
+    @Test("Combine dataTaskPublisher is intercepted") func combineDataTaskPublisherIsIntercepted() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/combine")!
@@ -319,7 +319,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Async upload and download
 
-    @Test func `Async upload is intercepted`() async {
+    @Test("Async upload is intercepted") func asyncUploadIsIntercepted() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/async-upload")!)
@@ -336,7 +336,7 @@ final class AirgapBlockingTests {
         #expect(Airgap.violations.count == 1, "Async upload should be intercepted")
     }
 
-    @Test func `Async download is intercepted`() async {
+    @Test("Async download is intercepted") func asyncDownloadIsIntercepted() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/async-download")!
@@ -356,7 +356,7 @@ final class AirgapBlockingTests {
     /// Simulates what Ktor's Darwin engine does: creates a URLSession from
     /// URLSessionConfiguration.default after Airgap is active. The swizzled
     /// config getter should inject AirgapURLProtocol, so the request is caught.
-    @Test func `Ktor Darwin engine pattern is intercepted`() async {
+    @Test("Ktor Darwin engine pattern is intercepted") func ktorDarwinEnginePatternIsIntercepted() async {
         Airgap.activate()
 
         let config = URLSessionConfiguration.default
@@ -376,7 +376,7 @@ final class AirgapBlockingTests {
     /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
     /// the configuration was obtained before activate() — closing the timing gap for
     /// KMP/Ktor code that eagerly creates its URLSession during module load.
-    @Test func `Session from pre activation config is intercepted via init swizzle`() async {
+    @Test("Session from pre activation config is intercepted via init swizzle") func sessionFromPreActivationConfigIsInterceptedViaInitSwizzle() async {
         // Grab config BEFORE activation — simulates Ktor initializing early.
         let preActivationConfig = URLSessionConfiguration.default
 
@@ -397,7 +397,7 @@ final class AirgapBlockingTests {
 
     /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol into the
     /// config passed to the initializer, even for non-standard configs like background.
-    @Test func `Init swizzle injects protocol into config before session creation`() {
+    @Test("Init swizzle injects protocol into config before session creation") func initSwizzleInjectsProtocolIntoConfigBeforeSessionCreation() {
         Airgap.activate()
 
         let config = URLSessionConfiguration.background(withIdentifier: "com.airgap.test.\(UUID().uuidString)")
@@ -416,7 +416,7 @@ final class AirgapBlockingTests {
 
     // MARK: - Concurrent requests
 
-    @Test func `Concurrent blocked requests`() async {
+    @Test("Concurrent blocked requests") func concurrentBlockedRequests() async {
         Airgap.activate()
 
         await withTaskGroup(of: Void.self) { group in

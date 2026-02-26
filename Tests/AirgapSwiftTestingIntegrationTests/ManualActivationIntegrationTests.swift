@@ -6,7 +6,7 @@ extension AllAirgapSwiftTestingTests {
 
     @Suite struct ManualActivationTests {
 
-        @Test func `Shared session request is blocked`() {
+        @Test("Shared session request is blocked") func sharedSessionRequestIsBlocked() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -26,7 +26,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(errorCapture.value != nil, "Blocked request should deliver an error")
         }
 
-        @Test func `Custom session with default config is blocked`() {
+        @Test("Custom session with default config is blocked") func customSessionWithDefaultConfigIsBlocked() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -44,7 +44,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test func `Custom session with ephemeral config is blocked`() {
+        @Test("Custom session with ephemeral config is blocked") func customSessionWithEphemeralConfigIsBlocked() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -62,7 +62,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test func `Violation message contains URL and guidance`() {
+        @Test("Violation message contains URL and guidance") func violationMessageContainsURLAndGuidance() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -82,7 +82,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(message.contains("mock") || message.contains("stub"))
         }
 
-        @Test func `File URL is not blocked`() {
+        @Test("File URL is not blocked") func fileURLIsNotBlocked() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -103,7 +103,7 @@ extension AllAirgapSwiftTestingTests {
             try? FileManager.default.removeItem(at: tempFile)
         }
 
-        @Test func `allowNetworkAccess prevents blocking`() {
+        @Test("allowNetworkAccess prevents blocking") func allowNetworkAccessPreventsBlocking() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -117,7 +117,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.isEmpty)
         }
 
-        @Test func `Deactivated guard does not block`() {
+        @Test("Deactivated guard does not block") func deactivatedGuardDoesNotBlock() {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
@@ -130,7 +130,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.isEmpty)
         }
 
-        @Test func `Issue record handler pattern compiles`() {
+        @Test("Issue record handler pattern compiles") func issueRecordHandlerPatternCompiles() {
             Airgap.violationHandler = { Issue.record("\($0)") }
             Airgap.activate()
             defer { Airgap.deactivate() }

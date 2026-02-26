@@ -22,7 +22,7 @@ final class AirgapReportTests {
 
     // MARK: - Report writing
 
-    @Test func `Write report creates file`() async {
+    @Test("Write report creates file") func writeReportCreatesFile() async {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-report-\(UUID().uuidString).txt").path
         Airgap.reportPath = tempPath
@@ -38,7 +38,7 @@ final class AirgapReportTests {
         try? FileManager.default.removeItem(atPath: tempPath)
     }
 
-    @Test func `Report contains method and URL`() async {
+    @Test("Report contains method and URL") func reportContainsMethodAndURL() async {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-report-content-\(UUID().uuidString).txt").path
         Airgap.reportPath = tempPath
@@ -63,7 +63,7 @@ final class AirgapReportTests {
 
     // MARK: - Report edge cases
 
-    @Test func `Write report handles unwritable path`() async {
+    @Test("Write report handles unwritable path") func writeReportHandlesUnwritablePath() async {
         Airgap.reportPath = "/nonexistent/deep/path/airgap-report.txt"
         Airgap.activate()
 
@@ -74,7 +74,7 @@ final class AirgapReportTests {
         Airgap.writeReport()
     }
 
-    @Test func `Write report with nil path is a no-op`() async {
+    @Test("Write report with nil path is a no-op") func writeReportWithNilPathIsANoOp() async {
         Airgap.reportPath = nil
         Airgap.activate()
 
@@ -87,7 +87,7 @@ final class AirgapReportTests {
         #expect(Airgap.violations.count == 1, "Violations should still be collected")
     }
 
-    @Test func `Write report with no violations does not create file`() {
+    @Test("Write report with no violations does not create file") func writeReportWithNoViolationsDoesNotCreateFile() {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-empty-\(UUID().uuidString).txt").path
         Airgap.reportPath = tempPath
@@ -99,7 +99,7 @@ final class AirgapReportTests {
 
     // MARK: - JSON report output
 
-    @Test func `Write report as JSON`() async throws {
+    @Test("Write report as JSON") func writeReportAsJSON() async throws {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("airgap-test-\(UUID().uuidString).json").path
         defer { try? FileManager.default.removeItem(atPath: tempPath) }
@@ -123,11 +123,11 @@ final class AirgapReportTests {
 
     // MARK: - Violation summary
 
-    @Test func `Violation summary returns nil when no violations`() {
+    @Test("Violation summary returns nil when no violations") func violationSummaryReturnsNilWhenNoViolations() {
         #expect(Airgap.violationSummary() == nil)
     }
 
-    @Test func `Violation summary returns formatted string`() async {
+    @Test("Violation summary returns formatted string") func violationSummaryReturnsFormattedString() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/summary-test")!

@@ -38,7 +38,7 @@ final class AirgapViolationTests {
 
     // MARK: - Violation message
 
-    @Test func `Violation message contains URL and guidance`() async {
+    @Test("Violation message contains URL and guidance") func violationMessageContainsURLAndGuidance() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/test")!
@@ -55,7 +55,7 @@ final class AirgapViolationTests {
 
     // MARK: - Violation message includes request details
 
-    @Test func `Violation message includes content type`() async {
+    @Test("Violation message includes content type") func violationMessageIncludesContentType() async {
         Airgap.activate()
 
         var request = URLRequest(url: URL(string: "https://example.com/api/content-type")!)
@@ -69,7 +69,7 @@ final class AirgapViolationTests {
         #expect(capture.messages.first?.contains("application/json") ?? false, "Violation should include Content-Type header")
     }
 
-    @Test func `Violation message omits content type when absent`() async {
+    @Test("Violation message omits content type when absent") func violationMessageOmitsContentTypeWhenAbsent() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/no-content-type")!
@@ -83,7 +83,7 @@ final class AirgapViolationTests {
 
     // MARK: - Error message hints
 
-    @Test func `Violation message contains hint`() async {
+    @Test("Violation message contains hint") func violationMessageContainsHint() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/hint-test")!
@@ -99,7 +99,7 @@ final class AirgapViolationTests {
 
     // MARK: - Violation collection
 
-    @Test func `Violations collected when report path set`() async {
+    @Test("Violations collected when report path set") func violationsCollectedWhenReportPathSet() async {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-test-\(UUID().uuidString).txt").path
         Airgap.reportPath = tempPath
@@ -115,7 +115,7 @@ final class AirgapViolationTests {
         try? FileManager.default.removeItem(atPath: tempPath)
     }
 
-    @Test func `Violations collected even when report path nil`() async {
+    @Test("Violations collected even when report path nil") func violationsCollectedEvenWhenReportPathNil() async {
         Airgap.reportPath = nil
         Airgap.activate()
 
@@ -128,7 +128,7 @@ final class AirgapViolationTests {
 
     // MARK: - Clear violations
 
-    @Test func `Clear violations resets collection`() async {
+    @Test("Clear violations resets collection") func clearViolationsResetsCollection() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/clear-test")!
@@ -142,7 +142,7 @@ final class AirgapViolationTests {
 
     // MARK: - Deactivate does not clear violations
 
-    @Test func `Deactivate does not clear violations`() async {
+    @Test("Deactivate does not clear violations") func deactivateDoesNotClearViolations() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/deactivate-test")!
@@ -154,7 +154,7 @@ final class AirgapViolationTests {
 
     // MARK: - Violation testName attribution
 
-    @Test func `Violation contains correct test name`() async {
+    @Test("Violation contains correct test name") func violationContainsCorrectTestName() async {
         AirgapURLProtocol.currentTestName = "MyTests/testSomething"
         Airgap.activate()
 
@@ -170,7 +170,7 @@ final class AirgapViolationTests {
     /// Note: This test is inherently brittle. It matches against mangled Swift symbol
     /// names in the call stack, which are compiler-version-dependent. If the test module
     /// or type is renamed, or the compiler's name mangling changes, update the patterns below.
-    @Test func `Violation call stack contains caller frame`() async {
+    @Test("Violation call stack contains caller frame") func violationCallStackContainsCallerFrame() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/caller-stack")!
@@ -194,7 +194,7 @@ final class AirgapViolationTests {
 
     // MARK: - Same URL multiple requests
 
-    @Test func `Multiple requests to same URL both recorded`() async {
+    @Test("Multiple requests to same URL both recorded") func multipleRequestsToSameURLBothRecorded() async {
         Airgap.activate()
 
         let url = URL(string: "https://example.com/api/same-url")!
@@ -209,7 +209,7 @@ final class AirgapViolationTests {
 
     // MARK: - Concurrent violation collection
 
-    @Test func `Concurrent violations are all collected in violations array`() async {
+    @Test("Concurrent violations are all collected in violations array") func concurrentViolationsAreAllCollectedInViolationsArray() async {
         Airgap.activate()
 
         await withTaskGroup(of: Void.self) { group in
@@ -226,7 +226,7 @@ final class AirgapViolationTests {
 
     // MARK: - Violation model tests
 
-    @Test func `Violation Codable roundtrip`() throws {
+    @Test("Violation Codable roundtrip") func violationCodableRoundtrip() throws {
         let original = Violation(
             testName: "TestClass/testMethod",
             httpMethod: "POST",
@@ -239,7 +239,7 @@ final class AirgapViolationTests {
         #expect(original == decoded)
     }
 
-    @Test func `Violation timestamp is populated`() {
+    @Test("Violation timestamp is populated") func violationTimestampIsPopulated() {
         let before = Date()
         let violation = Violation(testName: "test", httpMethod: "GET", url: "https://example.com", callStack: [])
         let after = Date()
