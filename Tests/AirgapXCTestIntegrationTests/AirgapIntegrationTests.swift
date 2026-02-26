@@ -142,6 +142,33 @@ final class AirgapTestCaseIntegrationTests: AirgapTestCase {
     }
 }
 
+// MARK: - AirgapTestCase with configure() override
+
+/// Simulates a consumer who overrides configure() to set custom mode and allowed hosts.
+final class AirgapTestCaseConfigureIntegrationTests: AirgapTestCase {
+
+    override func configure() {
+        Airgap.mode = .warn
+        Airgap.allowedHosts = ["localhost"]
+    }
+
+    func testConfigureOverrideSetsMode() {
+        XCTAssertEqual(Airgap.mode, .warn, "configure() should set warn mode")
+    }
+
+    func testConfigureOverrideSetsAllowedHosts() {
+        XCTAssertTrue(Airgap.allowedHosts.contains("localhost"),
+                      "configure() should add localhost to allowed hosts")
+    }
+
+    func testConfigureOverrideAllowedHostPassesThrough() {
+        let url = URL(string: "https://localhost/api")!
+        let request = URLRequest(url: url)
+        XCTAssertFalse(AirgapURLProtocol.canInit(with: request),
+                       "localhost should pass through when set in configure()")
+    }
+}
+
 // MARK: - AirgapTestCase with allowNetworkAccess opt-out
 
 /// Simulates a consumer who inherits AirgapTestCase but opts out via allowNetworkAccess().
