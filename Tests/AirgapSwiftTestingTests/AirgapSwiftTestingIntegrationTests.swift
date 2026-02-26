@@ -489,4 +489,8 @@ final class ViolationCapture: @unchecked Sendable {
     func record(_ message: String) {
         lock.withLock { _messages.append(message) }
     }
+
+    func reset() {
+        lock.withLock { _messages = [] }
+    }
 }
