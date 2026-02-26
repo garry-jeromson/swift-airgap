@@ -272,6 +272,78 @@ final class AirgapTests: XCTestCase {
         XCTAssertEqual(Airgap.errorCode, 42)
     }
 
+    // MARK: - WebSocket interception
+
+    func testWebSocketTaskProducesViolation() {
+        Airgap.activate()
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
+        task.resume()
+
+        // Give time for the swizzle to fire
+        let expectation = expectation(description: "violation recorded")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+
+        XCTAssertEqual(capture.count, 1)
+        XCTAssertTrue(capture.messages.first?.contains("example.com/ws") ?? false)
+    }
+
+    func testWebSocketTaskNotInterceptedWhenInactive() {
+        // Don't activate
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
+        task.resume()
+
+        let expectation = expectation(description: "wait")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+
+        XCTAssertEqual(capture.count, 0)
+    }
+
+    func testWebSocketTaskRespectsAllowedHosts() {
+        Airgap.allowedHosts = ["example.com"]
+        Airgap.activate()
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "wss://example.com/ws")!)
+        task.resume()
+
+        let expectation = expectation(description: "wait")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+
+        XCTAssertEqual(capture.count, 0, "Allowed host should not produce a violation")
+    }
+
+    func testWebSocketTaskIsCancelledAfterViolation() {
+        Airgap.activate()
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "wss://example.com/ws-cancel")!)
+        task.resume()
+
+        let expectation = expectation(description: "wait")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+
+        // After cancel(), the task transitions through .canceling to .completed
+        XCTAssertTrue(
+            task.state == .canceling || task.state == .completed,
+            "Task should be cancelled after violation, got state: \(task.state.rawValue)"
+        )
+    }
+
     // MARK: - Blocking requests
 
     func testURLSessionSharedDataTaskIsBlocked() {

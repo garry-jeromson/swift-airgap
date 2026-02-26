@@ -472,12 +472,37 @@ public enum Airgap {
         let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
 
         let swizzledBlock: @convention(block) (AnyObject) -> Void = { task in
+            guard let sessionTask = task as? URLSessionTask else {
+                originalFunction(task, selector)
+                return
+            }
+
+            let url = sessionTask.currentRequest?.url ?? sessionTask.originalRequest?.url
+            let urlString = url?.absoluteString ?? "<unknown URL>"
+
             // Capture the call stack at the point where resume() is called —
             // this is the user's code, not the URL loading system internals.
-            if let sessionTask = task as? URLSessionTask,
-               let urlString = sessionTask.currentRequest?.url?.absoluteString ?? sessionTask.originalRequest?.url?.absoluteString {
-                AirgapURLProtocol.storeCapturedCallStack(Thread.callStackSymbols, request: sessionTask.currentRequest, forURL: urlString)
+            AirgapURLProtocol.storeCapturedCallStack(Thread.callStackSymbols, request: sessionTask.currentRequest, forURL: urlString)
+
+            // WebSocket tasks (URLSessionWebSocketTask) and ws:///wss:// schemes are not
+            // intercepted by URLProtocol. Detect them here, report the violation, and cancel.
+            let scheme = url?.scheme?.lowercased()
+            let isWebSocket = sessionTask is URLSessionWebSocketTask
+                || scheme == "ws" || scheme == "wss"
+
+            if isWebSocket && AirgapURLProtocol.isActive && !AirgapURLProtocol.isAllowed {
+                if let host = url?.host, Airgap.isHostAllowed(host) {
+                    originalFunction(task, selector)
+                    return
+                }
+                let method = sessionTask.currentRequest?.httpMethod ?? "GET"
+                let callStack = Thread.callStackSymbols
+                let testName = AirgapURLProtocol.currentTestName
+                Airgap.reportViolation(method: method, url: urlString, callStack: callStack, testName: testName, request: sessionTask.currentRequest)
+                sessionTask.cancel()
+                return
             }
+
             originalFunction(task, selector)
         }
 
