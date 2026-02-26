@@ -43,3 +43,43 @@ final class LifecycleTestCase: AirgapTestCase {
         tearDown()
     }
 }
+
+/// Thread-safe violation capture for use in unit tests.
+final class ViolationCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _messages: [String] = []
+
+    var messages: [String] {
+        lock.withLock { _messages }
+    }
+
+    var count: Int {
+        lock.withLock { _messages.count }
+    }
+
+    var isEmpty: Bool {
+        lock.withLock { _messages.isEmpty }
+    }
+
+    func record(_ message: String) {
+        lock.withLock { _messages.append(message) }
+    }
+
+    func reset() {
+        lock.withLock { _messages = [] }
+    }
+}
+
+/// Thread-safe error capture for use in unit tests.
+final class ErrorCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: (any Error)?
+
+    var value: (any Error)? {
+        lock.withLock { _value }
+    }
+
+    func set(_ error: (any Error)?) {
+        lock.withLock { _value = error }
+    }
+}

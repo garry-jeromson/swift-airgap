@@ -56,6 +56,18 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         testCase: Test.Case?,
         performing function: @Sendable () async throws -> Void
     ) async throws {
+        // If an outer scope (e.g. ScopeLockTrait) already holds the lock,
+        // skip acquisition to avoid deadlock.
+        let alreadyHeld = Airgap.scopeLockHeld
+        if !alreadyHeld {
+            await Airgap.scopeLock.lock()
+        }
+        defer {
+            if !alreadyHeld {
+                Airgap.scopeLock.unlock()
+            }
+        }
+
         // Save all mutable state
         let previousHandler = Airgap.violationHandler
         let previousReporter = Airgap.violationReporter
@@ -103,7 +115,9 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
             AirgapURLProtocol.currentTestName = previousTestName
         }
 
-        try await function()
+        try await Airgap.$scopeLockHeld.withValue(true) {
+            try await function()
+        }
     }
 }
 

@@ -22,6 +22,16 @@ public enum Airgap {
 
     private static let lock = NSLock()
 
+    /// Async mutex that serializes test scopes that mutate Airgap's global state.
+    /// Used by AirgapTrait.provideScope to prevent concurrent scopes from
+    /// stomping on each other's configuration.
+    static let scopeLock = AsyncMutex()
+
+    /// Task-local flag indicating the current task already holds `scopeLock`.
+    /// Checked by `AirgapTrait.provideScope` to allow reentrant scoping when
+    /// an outer trait (e.g. `ScopeLockTrait`) already holds the lock.
+    @TaskLocal static var scopeLockHeld = false
+
     nonisolated(unsafe) private static var _mode: Mode = .fail
     /// The current violation reporting mode. Defaults to `.fail`.
     public static var mode: Mode {

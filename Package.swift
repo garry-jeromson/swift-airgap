@@ -23,7 +23,12 @@ let package = Package(
             plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
         ),
         .testTarget(
-            name: "AirgapSwiftTestingTests",
+            name: "AirgapUnitTests",
+            dependencies: ["Airgap"],
+            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+        ),
+        .testTarget(
+            name: "AirgapSwiftTestingIntegrationTests",
             dependencies: ["Airgap"],
             plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
         ),

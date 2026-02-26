@@ -1,11 +1,11 @@
 import Testing
-import Airgap
+@testable import Airgap
 import Foundation
 
 /// All Swift Testing integration tests are nested under a single serialized parent suite
 /// because Airgap uses static state (violationHandler, isActive) that would race
 /// if child suites ran in parallel.
-@Suite(.serialized)
+@Suite(.serialized, .scopeLocked)
 struct AllAirgapSwiftTestingTests {
 
     // MARK: - Manual activation integration tests
@@ -453,44 +453,53 @@ struct AllAirgapSwiftTestingTests {
     }
 }
 
-// MARK: - Helpers
+// MARK: - Scope serialization tests
 
-/// Thread-safe error capture for use in Swift Testing tests.
-final class ErrorCapture: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _value: (any Error)?
+/// Lives outside `AllAirgapSwiftTestingTests` because the test body acquires
+/// `Airgap.scopeLock` directly. Nesting it under the `.scopeLocked` parent
+/// would deadlock (the trait holds the lock, then the test tries to acquire it again).
+@Suite struct ScopeSerializationTests {
 
-    var value: (any Error)? {
-        lock.withLock { _value }
-    }
+    @Test func `Scope lock serializes concurrent access`() async {
+        // Verify that the scopeLock prevents concurrent scopes from overlapping.
+        // Two tasks try to acquire the lock, modify global state, sleep, and check
+        // that their state wasn't stomped by the other task.
 
-    func set(_ error: (any Error)?) {
-        lock.withLock { _value = error }
-    }
-}
+        let orderLog = OrderLog()
 
-/// Thread-safe violation capture shared by both integration tests and unit tests (AirgapTests.swift).
-final class ViolationCapture: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _messages: [String] = []
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await Airgap.scopeLock.lock()
+                defer { Airgap.scopeLock.unlock() }
+                orderLog.append("alpha-start")
+                Airgap.allowedHosts = ["alpha.example.com"]
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                #expect(Airgap.allowedHosts == ["alpha.example.com"],
+                        "Alpha's allowedHosts should not be stomped by beta")
+                orderLog.append("alpha-end")
+            }
 
-    var messages: [String] {
-        lock.withLock { _messages }
-    }
+            group.addTask {
+                await Airgap.scopeLock.lock()
+                defer { Airgap.scopeLock.unlock() }
+                orderLog.append("beta-start")
+                Airgap.allowedHosts = ["beta.example.com"]
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                #expect(Airgap.allowedHosts == ["beta.example.com"],
+                        "Beta's allowedHosts should not be stomped by alpha")
+                orderLog.append("beta-end")
+            }
 
-    var count: Int {
-        lock.withLock { _messages.count }
-    }
+            await group.waitForAll()
+        }
 
-    var isEmpty: Bool {
-        lock.withLock { _messages.isEmpty }
-    }
-
-    func record(_ message: String) {
-        lock.withLock { _messages.append(message) }
-    }
-
-    func reset() {
-        lock.withLock { _messages = [] }
+        // Verify serialization: one scope must fully complete before the other starts
+        let log = orderLog.entries
+        #expect(log.count == 4)
+        // Either alpha runs fully before beta, or beta runs fully before alpha
+        let alphaFirst = log == ["alpha-start", "alpha-end", "beta-start", "beta-end"]
+        let betaFirst = log == ["beta-start", "beta-end", "alpha-start", "alpha-end"]
+        #expect(alphaFirst || betaFirst,
+                "Scopes must be fully serialized, got: \(log)")
     }
 }

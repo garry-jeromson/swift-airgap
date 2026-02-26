@@ -34,6 +34,7 @@ Intercepted requests receive a configurable error code (default `NSURLErrorNotCo
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
 | `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |
 | `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation; warn mode uses `withKnownIssue` |
+| `Sources/Airgap/AsyncMutex.swift` | Async-compatible mutex for serializing `.airgapped` test scopes |
 | `Sources/Airgap/Violation.swift` | Sendable/Codable data model for captured violations |
 
 ## Conventions
@@ -49,9 +50,37 @@ Intercepted requests receive a configurable error code (default `NSURLErrorNotCo
 
 | Target | Framework | Purpose |
 |---|---|---|
-| `AirgapTests` | XCTest | Unit tests for all core functionality |
+| `AirgapUnitTests` | Swift Testing | Unit tests for all core functionality |
 | `AirgapXCTestIntegrationTests` | XCTest | Integration tests for XCTest-based activation flows |
-| `AirgapSwiftTestingTests` | Swift Testing | Integration tests for the `.airgapped` trait |
+| `AirgapSwiftTestingIntegrationTests` | Swift Testing | Integration tests for the `.airgapped` trait |
+
+## Why `.airgapped` Tests Are Serialized
+
+Airgap relies on process-global static state: `isActive`, `violationHandler`, `currentTestName`, `allowedHosts`, `mode`, `errorCode`, `responseDelay`, etc. The `.airgapped` trait's `provideScope` does a save → configure → run → restore cycle across all of these properties. If two `.airgapped` scopes ran concurrently, they would stomp on each other's configuration — violations get attributed to the wrong test, wrong handlers fire, and one scope's `deactivate()` kills the other's interception.
+
+To prevent this, `provideScope` acquires `Airgap.scopeLock` (an `AsyncMutex`) for the entire test body. This serializes all `.airgapped` tests process-wide, regardless of suite structure.
+
+### Why not task-local values?
+
+`URLProtocol.startLoading()` runs on Apple's internal `com.apple.CFNetwork.CustomProtocols` thread, **not** in the caller's task context. Task-local values don't propagate there, so there's no way to use structured concurrency to scope state per-test.
+
+### Why AsyncMutex instead of NSLock?
+
+`provideScope` is an `async` function that `await`s the test body. Holding an `NSLock` across a suspension point is undefined behavior — you may resume on a different thread, and `NSLock` requires unlock on the same thread as lock. `AsyncMutex` uses `CheckedContinuation` to queue waiters, so it's safe to hold across `await`.
+
+### Cross-target serialization via ScopeLockTrait
+
+`swift test` runs all Swift Testing targets in a single process. `@Suite(.serialized)` only serializes within a single suite hierarchy — it has no effect across targets. To prevent cross-target state races, both `AllAirgapUnitTests` and `AllAirgapSwiftTestingTests` apply `.scopeLocked`, a lightweight `TestScoping` trait that acquires `Airgap.scopeLock` for each test. This serializes all Swift Testing tests process-wide through the same `AsyncMutex`.
+
+To support nesting (e.g., `.scopeLocked` on the parent suite + `.airgapped` on a child), `AirgapTrait.provideScope` checks a task-local flag (`Airgap.scopeLockHeld`) and skips lock acquisition if an outer scope already holds it. `ScopeSerializationTests` lives outside the `.scopeLocked` parent because it acquires `scopeLock` directly in its test body — nesting it would deadlock.
+
+### What about XCTest?
+
+The scope lock is **not** applied to XCTest paths (`AirgapObserver`, `AirgapTestCase`). XCTest's parallel execution model runs test **targets** in separate processes (no shared state issue) and test **classes** sequentially within a process by default. The observer pattern keeps Airgap active for the entire bundle, and `AirgapTestCase` does per-test activate/deactivate.
+
+### Path to true parallel support
+
+The only viable approach would be **request-level tagging**: inject a scope identifier (e.g., via a custom URLProtocol property) in the `resume()` swizzle, then look it up in `startLoading()` to route the violation to the correct scope's handler. This requires per-scope configuration storage keyed by scope ID, but would eliminate the serialization constraint. This is a significant architectural change not currently planned.
 
 ## KMP (Kotlin Multiplatform) Network Interception Analysis
 

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Airgap
 
-extension AllAirgapSwiftTestingTests {
+extension AllAirgapUnitTests {
 
 @Suite(.serialized)
 final class AirgapWebSocketTests {
@@ -72,4 +72,4 @@ final class AirgapWebSocketTests {
     }
 }
 
-} // extension AllAirgapSwiftTestingTests
+} // extension AllAirgapUnitTests

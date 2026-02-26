@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import Airgap
 
-extension AllAirgapSwiftTestingTests {
+extension AllAirgapUnitTests {
 
 @Suite(.serialized)
 final class AirgapBlockingTests {
@@ -437,4 +437,4 @@ final class AirgapBlockingTests {
     }
 }
 
-} // extension AllAirgapSwiftTestingTests
+} // extension AllAirgapUnitTests
