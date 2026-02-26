@@ -86,6 +86,21 @@ public enum Airgap {
         set { lock.withLock { _violationReporter = newValue } }
     }
 
+    /// The URL error code delivered to intercepted requests. Defaults to `NSURLErrorNotConnectedToInternet`.
+    nonisolated(unsafe) private static var _errorCode: Int = NSURLErrorNotConnectedToInternet
+    public static var errorCode: Int {
+        get { lock.withLock { _errorCode } }
+        set { lock.withLock { _errorCode = newValue } }
+    }
+
+    /// An optional delay (in seconds) before delivering the error to intercepted requests.
+    /// Defaults to `0` (no delay). Useful for testing timeout handling or loading states.
+    nonisolated(unsafe) private static var _responseDelay: TimeInterval = 0
+    public static var responseDelay: TimeInterval {
+        get { lock.withLock { _responseDelay } }
+        set { lock.withLock { _responseDelay = newValue } }
+    }
+
     /// Whether we're running in an XCTest context (vs Swift Testing or standalone).
     ///
     /// Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
@@ -175,6 +190,7 @@ public enum Airgap {
     /// - `AIRGAP_MODE=warn` sets `mode = .warn`
     /// - `AIRGAP_REPORT_PATH=/path` sets `reportPath`
     /// - `AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1` sets `allowedHosts`
+    /// - `AIRGAP_ERROR_CODE=<int>` sets `errorCode`
     ///
     /// Safe to call multiple times — each call resets configuration from the environment.
     public static func configureFromEnvironment() {
@@ -198,6 +214,12 @@ public enum Airgap {
             allowedHosts = Set(hosts)
         } else {
             allowedHosts = []
+        }
+        if let codeValue = ProcessInfo.processInfo.environment["AIRGAP_ERROR_CODE"],
+           let code = Int(codeValue) {
+            errorCode = code
+        } else {
+            errorCode = NSURLErrorNotConnectedToInternet
         }
     }
 

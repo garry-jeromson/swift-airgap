@@ -87,14 +87,26 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
         Airgap.reportViolation(method: method, url: url, callStack: callStack, testName: testName, request: capturedRequest ?? request)
 
         // Deliver an error so the code under test receives a failure rather than hanging.
-        let error = NSError(
-            domain: NSURLErrorDomain,
-            code: NSURLErrorNotConnectedToInternet,
-            userInfo: [
-                NSLocalizedDescriptionKey: "Airgap: Network access is not allowed during tests."
-            ]
-        )
-        client?.urlProtocol(self, didFailWithError: error)
+        let code = Airgap.errorCode
+        let delay = Airgap.responseDelay
+
+        let deliverError: @Sendable () -> Void = { [weak self] in
+            guard let self else { return }
+            let error = NSError(
+                domain: NSURLErrorDomain,
+                code: code,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Airgap: Network access is not allowed during tests."
+                ]
+            )
+            self.client?.urlProtocol(self, didFailWithError: error)
+        }
+
+        if delay > 0 {
+            DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: deliverError)
+        } else {
+            deliverError()
+        }
     }
 
     override public func stopLoading() {

@@ -61,6 +61,8 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
         let previousReporter = Airgap.violationReporter
         let previousAllowedHosts = Airgap.allowedHosts
         let previousMode = Airgap.mode
+        let previousErrorCode = Airgap.errorCode
+        let previousResponseDelay = Airgap.responseDelay
         let previousTestName = AirgapURLProtocol.currentTestName
 
         Airgap.configureFromEnvironment()
@@ -96,6 +98,8 @@ public struct AirgapTrait: TestTrait, SuiteTrait, TestScoping {
             Airgap.violationReporter = previousReporter
             Airgap.allowedHosts = previousAllowedHosts
             Airgap.mode = previousMode
+            Airgap.errorCode = previousErrorCode
+            Airgap.responseDelay = previousResponseDelay
             AirgapURLProtocol.currentTestName = previousTestName
         }
 

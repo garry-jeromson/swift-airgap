@@ -10,6 +10,8 @@ final class AirgapTests: XCTestCase {
     private var originalMode: Airgap.Mode!
     private var originalReportPath: String?
     private var originalAllowedHosts: Set<String>!
+    private var originalErrorCode: Int!
+    private var originalResponseDelay: TimeInterval!
 
     override func setUp() {
         super.setUp()
@@ -19,12 +21,16 @@ final class AirgapTests: XCTestCase {
         originalMode = Airgap.mode
         originalReportPath = Airgap.reportPath
         originalAllowedHosts = Airgap.allowedHosts
+        originalErrorCode = Airgap.errorCode
+        originalResponseDelay = Airgap.responseDelay
 
         let cap = capture
         Airgap.violationHandler = { message in
             cap.record(message)
         }
         Airgap.violationReporter = nil
+        Airgap.errorCode = NSURLErrorNotConnectedToInternet
+        Airgap.responseDelay = 0
         Airgap.inXCTestContext = true
         Airgap.mode = .fail
         Airgap.reportPath = nil
@@ -36,6 +42,8 @@ final class AirgapTests: XCTestCase {
         Airgap.deactivate()
         Airgap.violationHandler = originalHandler
         Airgap.violationReporter = originalReporter
+        Airgap.errorCode = originalErrorCode
+        Airgap.responseDelay = originalResponseDelay
         Airgap.mode = originalMode
         Airgap.reportPath = originalReportPath
         Airgap.allowedHosts = originalAllowedHosts
@@ -148,6 +156,59 @@ final class AirgapTests: XCTestCase {
         XCTAssertTrue(message.contains(".warn"), "Hint should mention .warn mode")
         // Original text is still present
         XCTAssertTrue(message.contains("mock"), "Original message text should be preserved")
+    }
+
+    // MARK: - Error code and response delay
+
+    func testCustomErrorCodeIsDelivered() {
+        Airgap.errorCode = NSURLErrorTimedOut
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        var receivedError: NSError?
+        let url = URL(string: "https://example.com/error-code-test")!
+        URLSession.shared.dataTask(with: url) { _, _, error in
+            receivedError = error as? NSError
+            expectation.fulfill()
+        }.resume()
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(receivedError?.code, NSURLErrorTimedOut)
+    }
+
+    func testDefaultErrorCodeIsNotConnectedToInternet() {
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        var receivedError: NSError?
+        let url = URL(string: "https://example.com/default-error-test")!
+        URLSession.shared.dataTask(with: url) { _, _, error in
+            receivedError = error as? NSError
+            expectation.fulfill()
+        }.resume()
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(receivedError?.code, NSURLErrorNotConnectedToInternet)
+    }
+
+    func testResponseDelayAddsLatency() {
+        Airgap.responseDelay = 0.5
+        Airgap.activate()
+
+        let expectation = expectation(description: "Data task completes")
+        let url = URL(string: "https://example.com/delay-test")!
+        let start = Date()
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+            expectation.fulfill()
+        }.resume()
+        wait(for: [expectation], timeout: 5.0)
+
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertGreaterThanOrEqual(elapsed, 0.4, "Response should be delayed by at least 0.4s")
+    }
+
+    func testDefaultResponseDelayIsZero() {
+        XCTAssertEqual(Airgap.responseDelay, 0)
     }
 
     // MARK: - Blocking requests
