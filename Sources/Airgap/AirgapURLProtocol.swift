@@ -12,12 +12,16 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
 
     nonisolated(unsafe) private static var _isActive = false
+    /// Whether the protocol is currently intercepting HTTP/HTTPS requests.
+    /// Set by `Airgap.activate()` and `Airgap.deactivate()`.
     public internal(set) static var isActive: Bool {
         get { lock.withLock { _isActive } }
         set { lock.withLock { _isActive = newValue } }
     }
 
     nonisolated(unsafe) private static var _isAllowed = false
+    /// When `true`, requests pass through without interception. Set by `Airgap.allowNetworkAccess()`
+    /// and reset to `false` on each `Airgap.activate()` call or by `AirgapObserver.testCaseWillStart`.
     public internal(set) static var isAllowed: Bool {
         get { lock.withLock { _isAllowed } }
         set { lock.withLock { _isAllowed = newValue } }
