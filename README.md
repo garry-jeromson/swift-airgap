@@ -39,7 +39,7 @@ Apply the `.airgapped` trait to a suite or test:
 import Airgap
 import Testing
 
-@Suite(.airgapped, .serialized)
+@Suite(.airgapped)
 struct MyFeatureTests {
     @Test func fetchData() async throws {
         // Any HTTP/HTTPS request here will record an Issue
@@ -94,6 +94,17 @@ final class MyTests: AirgapTestCase {
 }
 ```
 
+Override `configure()` to customize settings per-class. It runs after environment variables are applied and before `activate()`:
+
+```swift
+final class MyTests: AirgapTestCase {
+    override func configure() {
+        Airgap.mode = .warn
+        Airgap.allowedHosts = ["localhost"]
+    }
+}
+```
+
 ### Manual per-test
 
 ```swift
@@ -120,7 +131,7 @@ Choose `AirgapObserver` when you want bundle-wide coverage with a single violati
 Apply the trait to a `@Suite` to protect all tests within it:
 
 ```swift
-@Suite(.airgapped, .serialized)
+@Suite(.airgapped)
 struct MyTests {
     @Test func fetchData() async throws {
         // Any HTTP/HTTPS request here will record an Issue
@@ -128,9 +139,11 @@ struct MyTests {
 }
 ```
 
-> **Important:** `.serialized` is required — Airgap uses global state that would race with parallel test execution.
+The trait automatically serializes `.airgapped` scopes process-wide, so concurrent suites don't corrupt each other's configuration. Adding `.serialized` is optional but avoids lock contention overhead if your suites would otherwise run in parallel.
 
 The trait automatically sets the violation handler to `Issue.record()` and activates/deactivates the guard around each test.
+
+To opt out an individual test within a guarded suite, call `Airgap.allowNetworkAccess()` at the start of the test body — see [Allowing Network Access](#allowing-network-access).
 
 ### Test-level — `.airgapped` trait
 
@@ -161,7 +174,7 @@ func testWithRealNetwork() {
 }
 
 // Swift Testing — opt out a single test within a guarded suite
-@Suite(.airgapped, .serialized)
+@Suite(.airgapped)
 struct MyTests {
     @Test func integrationTest() async throws {
         Airgap.allowNetworkAccess()
@@ -187,6 +200,8 @@ Airgap.allowedHosts = ["*.mock-server.local"]  // matches api.mock-server.local,
 ```
 
 Matching is case-insensitive per RFC 3986. Allowed hosts persist across `activate()`/`deactivate()` cycles — they are configuration, not per-test state.
+
+> **Note:** Host matching uses `URL.host`, which does not include the port. Patterns like `"localhost:8080"` will never match — use `"localhost"` instead.
 
 #### With the `.airgapped` trait
 
@@ -214,7 +229,7 @@ By default, Airgap fails tests immediately on any violation (`.fail` mode). Use 
 ### Swift Testing trait
 
 ```swift
-@Suite(.airgapped(mode: .warn), .serialized)
+@Suite(.airgapped(mode: .warn))
 struct MyTests {
     // Violations appear as known issues in the test navigator via withKnownIssue
 }
@@ -408,6 +423,8 @@ Airgap.withConfiguration(mode: .warn) {
 }
 ```
 
+> **Note:** `withConfiguration` accepts a synchronous closure. For async test scopes, use the `.airgapped` trait instead.
+
 ## Error Customization
 
 ### Error Code
@@ -474,6 +491,36 @@ The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses 
 | `data:` URLs | Non-HTTP scheme, intentionally allowed |
 | `Data(contentsOf: remoteURL)` | Uses a lower-level loading path that bypasses URLProtocol |
 | Sessions created before `activate()` with a custom configuration | The session already exists; swizzling can only inject at creation time |
+
+## Parallelism & Serialization
+
+Airgap uses process-global state (`isActive`, `violationHandler`, `currentTestName`, `allowedHosts`, `mode`, etc.) to configure interception and route violations back to the correct test. This means `.airgapped` test scopes cannot run concurrently within the same process — if they did, one scope's configuration would stomp on another's, causing violations to be attributed to the wrong test, wrong handlers to fire, or one scope's `deactivate()` to kill another scope's interception.
+
+### Swift Testing
+
+The `.airgapped` trait automatically serializes scopes process-wide using an internal async mutex. You can safely apply `.airgapped` to multiple independent suites without worrying about races:
+
+```swift
+// These are safe — the trait serializes them automatically
+@Suite(.airgapped) struct FeatureATests { ... }
+@Suite(.airgapped) struct FeatureBTests { ... }
+```
+
+Adding `.serialized` to your suites is optional. It avoids lock contention overhead by telling Swift Testing not to attempt parallel execution in the first place, but the mutex ensures correctness either way.
+
+Tests that don't use `.airgapped` are unaffected and run in parallel normally.
+
+### XCTest
+
+XCTest's default parallel execution model runs test **targets** in separate processes, so each process has its own copy of Airgap's static state — no issue. Within a single process, XCTest runs test classes sequentially by default.
+
+If you enable Xcode's "Execute in parallel" option for test classes within the same target, `AirgapTestCase` and `AirgapObserver` do not currently serialize access. This is uncommon in practice, but if you hit it, either disable parallel class execution for the Airgap-protected target or use manual `activate()`/`deactivate()` with your own synchronization.
+
+### Why not per-test isolation?
+
+The fundamental constraint is Apple's `URLProtocol` architecture: `startLoading()` runs on an internal `com.apple.CFNetwork.CustomProtocols` thread, not in the caller's task context. Task-local values don't propagate there, so there's no way to use Swift's structured concurrency to scope Airgap state per-test. Every intercepted request lands in the same global `URLProtocol` subclass with no correlation back to the originating test.
+
+A future approach could inject a scope identifier into each request (via a URLProtocol property) at the `resume()` swizzle point, then route violations to the correct scope in `startLoading()`. This would eliminate the serialization constraint but requires a significant architectural change.
 
 ## How It Works
 
