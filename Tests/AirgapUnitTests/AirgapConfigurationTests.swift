@@ -165,6 +165,22 @@ final class AirgapConfigurationTests {
         #expect(Airgap.mode == .fail)
     }
 
+    @Test func `With configuration restores error code`() {
+        Airgap.errorCode = NSURLErrorNotConnectedToInternet
+        Airgap.withConfiguration(errorCode: NSURLErrorTimedOut) {
+            #expect(Airgap.errorCode == NSURLErrorTimedOut)
+        }
+        #expect(Airgap.errorCode == NSURLErrorNotConnectedToInternet)
+    }
+
+    @Test func `With configuration restores response delay`() {
+        Airgap.responseDelay = 0
+        Airgap.withConfiguration(responseDelay: 2.5) {
+            #expect(Airgap.responseDelay == 2.5)
+        }
+        #expect(Airgap.responseDelay == 0)
+    }
+
     @Test func `With configuration partial override keeps other settings`() {
         Airgap.mode = .fail
         Airgap.errorCode = 42
