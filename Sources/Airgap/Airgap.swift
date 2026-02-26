@@ -191,6 +191,8 @@ public enum Airgap {
     /// Only the parameters you pass are changed; `nil` means "keep the current value."
     /// All mutable Airgap state (mode, allowedHosts, violationHandler, violationReporter,
     /// errorCode, responseDelay) is saved before and restored after, even if `body` throws.
+    ///
+    /// - Note: The body is synchronous. For async test scopes, use the `.airgapped` trait instead.
     @discardableResult
     public static func withConfiguration<T>(
         mode: Mode? = nil,
@@ -236,14 +238,17 @@ public enum Airgap {
         return "Airgap: \(currentViolations.count) violation(s) detected across \(testNames.count) test(s)"
     }
 
-    /// Reads environment variables to configure mode, report path, and allowed hosts.
+    /// Reads environment variables to configure mode, report path, allowed hosts, and error code.
     ///
-    /// - `AIRGAP_MODE=warn` sets `mode = .warn`
-    /// - `AIRGAP_REPORT_PATH=/path` sets `reportPath`
-    /// - `AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1` sets `allowedHosts`
-    /// - `AIRGAP_ERROR_CODE=<int>` sets `errorCode`
+    /// - `AIRGAP_MODE=warn` sets `mode = .warn` (absent → `.fail`)
+    /// - `AIRGAP_REPORT_PATH=/path` sets `reportPath` (absent → `nil`)
+    /// - `AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1` sets `allowedHosts` (absent → `[]`)
+    /// - `AIRGAP_ERROR_CODE=<int>` sets `errorCode` (absent → `NSURLErrorNotConnectedToInternet`)
     ///
-    /// Safe to call multiple times — each call resets configuration from the environment.
+    /// **Not reset by this method:** `responseDelay`, `violationHandler`, and `violationReporter`
+    /// retain their current values. Only the four properties above are driven by environment variables.
+    ///
+    /// Safe to call multiple times — each call resets the above properties from the environment.
     public static func configureFromEnvironment() {
         if let modeValue = ProcessInfo.processInfo.environment["AIRGAP_MODE"],
            modeValue.lowercased() == "warn" {
