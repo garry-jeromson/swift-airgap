@@ -1,5 +1,7 @@
 import Foundation
 
+// These types mirror those in AirgapTestHelpers.swift — keep in sync.
+
 /// Thread-safe ordered log for verifying serialization.
 final class OrderLog: @unchecked Sendable {
     private let lock = NSLock()

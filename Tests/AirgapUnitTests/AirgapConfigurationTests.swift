@@ -9,31 +9,8 @@ final class AirgapConfigurationTests {
 
     private let capture = ViolationCapture()
 
-    /// Drains the main queue so that async-dispatched violation handlers are processed.
-    /// `reportViolation` dispatches the handler to `DispatchQueue.main.async` in `.fail` mode
-    /// when called from a background thread (e.g., `com.apple.CFNetwork.CustomProtocols`).
-    private func drainMainQueue() async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            DispatchQueue.main.async { continuation.resume() }
-        }
-    }
-
     init() {
-        Airgap.deactivate()
-        capture.reset()
-
-        let cap = capture
-        Airgap.violationHandler = { message in
-            cap.record(message)
-        }
-        Airgap.violationReporter = nil
-        Airgap.inXCTestContext = false
-        Airgap.errorCode = NSURLErrorNotConnectedToInternet
-        Airgap.responseDelay = 0
-        Airgap.mode = .fail
-        Airgap.reportPath = nil
-        Airgap.allowedHosts = []
-        Airgap.clearViolations()
+        resetAirgapState(capture: capture)
     }
 
     // MARK: - Warning mode

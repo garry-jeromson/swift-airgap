@@ -9,6 +9,8 @@ import XCTest
 /// Tests that legitimately need network access can opt out via `allowNetworkAccess()`.
 public enum Airgap {
 
+    // MARK: - Types
+
     /// Controls how violations are reported.
     public enum Mode: Equatable, Sendable {
         /// Default: calls the violation handler directly (XCTFail by default).
@@ -19,6 +21,8 @@ public enum Airgap {
         /// so they appear as known issues in the test navigator.
         case warn
     }
+
+    // MARK: - Thread-safe properties
 
     private static let lock = NSLock()
 
@@ -124,6 +128,8 @@ public enum Airgap {
 
     /// Whether swizzling has been applied (only needs to happen once).
     nonisolated(unsafe) private static var hasSwizzled = false
+
+    // MARK: - Public API
 
     /// Activates the network guard. Registers the URLProtocol and swizzles session configurations.
     ///
@@ -279,6 +285,8 @@ public enum Airgap {
         }
     }
 
+    // MARK: - Violation reporting
+
     /// Reports a network violation through the configured handler.
     static func reportViolation(method: String, url: String, callStack: [String], testName: String, request: URLRequest? = nil) {
         var message = """
@@ -313,38 +321,32 @@ public enum Airgap {
         // XCTest APIs (XCTFail, XCTExpectFailure) must be called on the main thread.
         // startLoading() runs on com.apple.CFNetwork.CustomProtocols, so we dispatch when needed.
         let handler = violationHandler
+        let finalMessage = message
 
         switch mode {
         case .fail:
-            if Thread.isMainThread {
-                handler(message)
-            } else {
-                DispatchQueue.main.async { handler(message) }
-            }
+            onMainThread { handler(finalMessage) }
         case .warn:
             // In warn mode, report the violation without failing the test.
             // XCTExpectFailure is only safe in an XCTest context — calling it from Swift Testing
             // crashes because there is no active XCTestCase.
             #if canImport(XCTest)
             if inXCTestContext {
-                let work = {
+                onMainThread {
                     XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
-                        handler(message)
+                        handler(finalMessage)
                     }
                 }
-                if Thread.isMainThread {
-                    work()
-                } else {
-                    DispatchQueue.main.async { work() }
-                }
             } else {
-                handler(message)
+                handler(finalMessage)
             }
             #else
-            handler(message)
+            handler(finalMessage)
             #endif
         }
     }
+
+    // MARK: - Report generation
 
     /// Writes collected violations to the configured `reportPath`.
     ///
@@ -400,7 +402,53 @@ public enum Airgap {
         return report
     }
 
-    // MARK: - Configuration swizzling
+    // MARK: - Private helpers
+
+    private static func onMainThread(_ work: @escaping @Sendable () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async { work() }
+        }
+    }
+
+    private static func injectProtocol(into config: URLSessionConfiguration) {
+        var protocols = config.protocolClasses ?? []
+        if !protocols.contains(where: { $0 == AirgapURLProtocol.self }) {
+            protocols.insert(AirgapURLProtocol.self, at: 0)
+        }
+        config.protocolClasses = protocols
+    }
+
+    private static func interceptWebSocketIfNeeded(
+        _ task: URLSessionTask,
+        url: URL?,
+        urlString: String
+    ) -> Bool {
+        let scheme = url?.scheme?.lowercased()
+        let isWebSocket = task is URLSessionWebSocketTask
+            || scheme == "ws" || scheme == "wss"
+
+        guard isWebSocket, AirgapURLProtocol.isActive, !AirgapURLProtocol.isAllowed else {
+            return false
+        }
+
+        if let host = url?.host, isHostAllowed(host) {
+            return false
+        }
+
+        let method = task.currentRequest?.httpMethod ?? "GET"
+        reportViolation(
+            method: method, url: urlString,
+            callStack: Thread.callStackSymbols,
+            testName: AirgapURLProtocol.currentTestName,
+            request: task.currentRequest
+        )
+        task.cancel()
+        return true
+    }
+
+    // MARK: - Swizzling
 
     /// Swizzles `URLSessionConfiguration.default` and `.ephemeral` property getters
     /// to inject `AirgapURLProtocol` into any newly-created session configuration.
@@ -428,11 +476,7 @@ public enum Airgap {
 
         let swizzledBlock: @convention(block) (AnyObject) -> URLSessionConfiguration = { obj in
             let config = originalFunction(obj, original)
-            var protocols = config.protocolClasses ?? []
-            if !protocols.contains(where: { $0 == AirgapURLProtocol.self }) {
-                protocols.insert(AirgapURLProtocol.self, at: 0)
-            }
-            config.protocolClasses = protocols
+            injectProtocol(into: config)
             return config
         }
 
@@ -460,11 +504,7 @@ public enum Airgap {
         let swizzledBlock: @convention(block) (
             AnyObject, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?
         ) -> URLSession = { obj, config, delegate, queue in
-            var protocols = config.protocolClasses ?? []
-            if !protocols.contains(where: { $0 == AirgapURLProtocol.self }) {
-                protocols.insert(AirgapURLProtocol.self, at: 0)
-            }
-            config.protocolClasses = protocols
+            injectProtocol(into: config)
             return originalFunction(obj, selector, config, delegate, queue)
         }
 
@@ -501,20 +541,7 @@ public enum Airgap {
 
             // WebSocket tasks (URLSessionWebSocketTask) and ws:///wss:// schemes are not
             // intercepted by URLProtocol. Detect them here, report the violation, and cancel.
-            let scheme = url?.scheme?.lowercased()
-            let isWebSocket = sessionTask is URLSessionWebSocketTask
-                || scheme == "ws" || scheme == "wss"
-
-            if isWebSocket && AirgapURLProtocol.isActive && !AirgapURLProtocol.isAllowed {
-                if let host = url?.host, Airgap.isHostAllowed(host) {
-                    originalFunction(task, selector)
-                    return
-                }
-                let method = sessionTask.currentRequest?.httpMethod ?? "GET"
-                let callStack = Thread.callStackSymbols
-                let testName = AirgapURLProtocol.currentTestName
-                Airgap.reportViolation(method: method, url: urlString, callStack: callStack, testName: testName, request: sessionTask.currentRequest)
-                sessionTask.cancel()
+            if interceptWebSocketIfNeeded(sessionTask, url: url, urlString: urlString) {
                 return
             }
 

@@ -8,16 +8,7 @@ extension AllAirgapUnitTests {
 final class AirgapReportTests {
 
     init() {
-        Airgap.deactivate()
-        Airgap.violationHandler = { _ in }
-        Airgap.violationReporter = nil
-        Airgap.inXCTestContext = false
-        Airgap.errorCode = NSURLErrorNotConnectedToInternet
-        Airgap.responseDelay = 0
-        Airgap.mode = .fail
-        Airgap.reportPath = nil
-        Airgap.allowedHosts = []
-        Airgap.clearViolations()
+        resetAirgapState()
     }
 
     // MARK: - Report writing

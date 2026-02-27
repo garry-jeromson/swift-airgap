@@ -10,21 +10,7 @@ final class AirgapAllowedHostsTests {
     private let capture = ViolationCapture()
 
     init() {
-        Airgap.deactivate()
-        capture.reset()
-
-        let cap = capture
-        Airgap.violationHandler = { message in
-            cap.record(message)
-        }
-        Airgap.violationReporter = nil
-        Airgap.inXCTestContext = false
-        Airgap.errorCode = NSURLErrorNotConnectedToInternet
-        Airgap.responseDelay = 0
-        Airgap.mode = .fail
-        Airgap.reportPath = nil
-        Airgap.allowedHosts = []
-        Airgap.clearViolations()
+        resetAirgapState(capture: capture)
     }
 
     // MARK: - Allowed hosts

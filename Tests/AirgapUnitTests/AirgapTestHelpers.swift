@@ -1,6 +1,45 @@
 import Foundation
 @testable import Airgap
 
+/// Drains the main queue so that async-dispatched violation handlers are processed.
+/// `reportViolation` dispatches the handler to `DispatchQueue.main.async` in `.fail` mode
+/// when called from a background thread (e.g., `com.apple.CFNetwork.CustomProtocols`).
+func drainMainQueue() async {
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        DispatchQueue.main.async { continuation.resume() }
+    }
+}
+
+/// Resets all mutable Airgap state to defaults with the given capture as violation handler.
+func resetAirgapState(capture: ViolationCapture) {
+    Airgap.deactivate()
+    capture.reset()
+    let cap = capture
+    Airgap.violationHandler = { cap.record($0) }
+    Airgap.violationReporter = nil
+    Airgap.inXCTestContext = false
+    Airgap.errorCode = NSURLErrorNotConnectedToInternet
+    Airgap.responseDelay = 0
+    Airgap.mode = .fail
+    Airgap.reportPath = nil
+    Airgap.allowedHosts = []
+    Airgap.clearViolations()
+}
+
+/// Resets all mutable Airgap state to defaults with a no-op violation handler.
+func resetAirgapState() {
+    Airgap.deactivate()
+    Airgap.violationHandler = { _ in }
+    Airgap.violationReporter = nil
+    Airgap.inXCTestContext = false
+    Airgap.errorCode = NSURLErrorNotConnectedToInternet
+    Airgap.responseDelay = 0
+    Airgap.mode = .fail
+    Airgap.reportPath = nil
+    Airgap.allowedHosts = []
+    Airgap.clearViolations()
+}
+
 /// Thread-safe violation reporter capture for use in tests with @Sendable closures.
 final class ViolationReporterCapture: @unchecked Sendable {
     private let lock = NSLock()
