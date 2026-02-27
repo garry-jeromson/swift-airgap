@@ -3,12 +3,18 @@
 import Foundation
 import PackageDescription
 
-let swiftLintPlugins: [Target.PluginUsage]
-if ProcessInfo.processInfo.environment["DISABLE_SWIFTLINT"] == nil {
-    swiftLintPlugins = [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
-} else {
-    swiftLintPlugins = []
-}
+let enableSwiftLint = ProcessInfo.processInfo.environment["ENABLE_SWIFTLINT"] != nil
+
+let swiftLintPlugins: [Target.PluginUsage] = enableSwiftLint
+    ? [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+    : []
+
+let swiftLintDependencies: [Package.Dependency] = enableSwiftLint
+    ? [
+        .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2"),
+        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.55.6"),
+    ]
+    : []
 
 let package = Package(
     name: "Airgap",
@@ -16,10 +22,7 @@ let package = Package(
     products: [
         .library(name: "Airgap", targets: ["Airgap"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2"),
-        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.55.6"),
-    ],
+    dependencies: swiftLintDependencies,
     targets: [
         .target(
             name: "Airgap",

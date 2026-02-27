@@ -10,7 +10,7 @@ clean:
 	swift package clean
 
 lint:
-	swift package plugin --allow-writing-to-package-directory swiftlint
+	ENABLE_SWIFTLINT=1 swift package plugin --allow-writing-to-package-directory swiftlint
 
 format:
-	swift package plugin --allow-writing-to-package-directory swiftformat .
+	ENABLE_SWIFTLINT=1 swift package plugin --allow-writing-to-package-directory swiftformat .
