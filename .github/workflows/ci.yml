@@ -9,15 +9,21 @@ on:
 jobs:
   build-and-test:
     name: ${{ matrix.name }}
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
           - name: "Swift 6.0 (Build Only)"
             xcode: "16.2"
+            runner: macos-15
             run-tests: false
           - name: "Swift 6.1 (Build & Test)"
             xcode: "16.4"
+            runner: macos-15
+            run-tests: true
+          - name: "Swift 6.2 (Build & Test)"
+            xcode: "26.2"
+            runner: macos-26
             run-tests: true
     steps:
       - uses: actions/checkout@v4
