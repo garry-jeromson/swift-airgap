@@ -6,6 +6,9 @@
 
 Detect and fail any test that attempts a real HTTP/HTTPS network request. Drop-in, zero dependencies, supports both XCTest and Swift Testing. Works on iOS, macOS, tvOS, and watchOS.
 
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fgarry-jeromson%2Fswift-airgap%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/garry-jeromson/swift-airgap)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fgarry-jeromson%2Fswift-airgap%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/garry-jeromson/swift-airgap)
+
 ## Overview
 
 Tests should never make real outgoing network calls — they slow down the suite, cause flaky failures, and can hit production APIs. Airgap provides a mechanism to catch and report any test that attempts a real HTTP/HTTPS request.
