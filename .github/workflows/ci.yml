@@ -15,7 +15,7 @@ jobs:
         include:
           - name: "Swift 5.10 (Build Only)"
             xcode: "15.4"
-            runner: macos-15
+            runner: macos-14
             run-tests: false
             swift6-consumer: false
           - name: "Swift 6.0 (Build Only)"
