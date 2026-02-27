@@ -36,14 +36,22 @@ public enum Airgap {
     /// an outer trait (e.g. `ScopeLockTrait`) already holds the lock.
     @TaskLocal static var scopeLockHeld = false
 
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _mode: Mode = .fail
+    #else
+    private static var _mode: Mode = .fail
+    #endif
     /// The current violation reporting mode. Defaults to `.fail`.
     public static var mode: Mode {
         get { lock.withLock { _mode } }
         set { lock.withLock { _mode = newValue } }
     }
 
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _reportPath: String?
+    #else
+    private static var _reportPath: String?
+    #endif
     /// When set, violations are collected and written to this file path.
     public static var reportPath: String? {
         get { lock.withLock { _reportPath } }
@@ -57,14 +65,22 @@ public enum Airgap {
     /// are cleared automatically in `setUp`. Call `clearViolations()` if you need to reset manually.
     ///
     /// Thread-safe: reads and writes are protected by an internal lock.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _violations: [Violation] = []
+    #else
+    private static var _violations: [Violation] = []
+    #endif
     public static var violations: [Violation] {
         lock.withLock { _violations }
     }
 
     /// Hosts that are allowed through even when the guard is active.
     /// Useful for tests that hit localhost or mock servers.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _allowedHosts: Set<String> = []
+    #else
+    private static var _allowedHosts: Set<String> = []
+    #endif
     public static var allowedHosts: Set<String> {
         get { lock.withLock { _allowedHosts } }
         set { lock.withLock { _allowedHosts = newValue } }
@@ -74,6 +90,7 @@ public enum Airgap {
     /// Set to `{ Issue.record($0) }` for Swift Testing, or any custom handler.
     ///
     /// Thread-safe: reads and writes are protected by an internal lock.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _violationHandler: @Sendable (String) -> Void = { message in
         #if canImport(XCTest)
         XCTFail(message)
@@ -81,6 +98,15 @@ public enum Airgap {
         assertionFailure(message)
         #endif
     }
+    #else
+    private static var _violationHandler: @Sendable (String) -> Void = { message in
+        #if canImport(XCTest)
+        XCTFail(message)
+        #else
+        assertionFailure(message)
+        #endif
+    }
+    #endif
     public static var violationHandler: @Sendable (String) -> Void {
         get { lock.withLock { _violationHandler } }
         set { lock.withLock { _violationHandler = newValue } }
@@ -94,14 +120,22 @@ public enum Airgap {
     /// Called when a network violation is detected with the full `Violation` struct.
     /// Use for structured analytics, CI integration, or custom reporting. Called in addition
     /// to `violationHandler`; `nil` by default.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _violationReporter: (@Sendable (Violation) -> Void)?
+    #else
+    private static var _violationReporter: (@Sendable (Violation) -> Void)?
+    #endif
     public static var violationReporter: (@Sendable (Violation) -> Void)? {
         get { lock.withLock { _violationReporter } }
         set { lock.withLock { _violationReporter = newValue } }
     }
 
     /// The URL error code delivered to intercepted requests. Defaults to `NSURLErrorNotConnectedToInternet`.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _errorCode: Int = NSURLErrorNotConnectedToInternet
+    #else
+    private static var _errorCode: Int = NSURLErrorNotConnectedToInternet
+    #endif
     public static var errorCode: Int {
         get { lock.withLock { _errorCode } }
         set { lock.withLock { _errorCode = newValue } }
@@ -109,7 +143,11 @@ public enum Airgap {
 
     /// An optional delay (in seconds) before delivering the error to intercepted requests.
     /// Defaults to `0` (no delay). Useful for testing timeout handling or loading states.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _responseDelay: TimeInterval = 0
+    #else
+    private static var _responseDelay: TimeInterval = 0
+    #endif
     public static var responseDelay: TimeInterval {
         get { lock.withLock { _responseDelay } }
         set { lock.withLock { _responseDelay = newValue } }
@@ -120,14 +158,22 @@ public enum Airgap {
     /// Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
     /// uses `XCTExpectFailure` to show violations in Xcode's issue navigator without failing.
     /// When `false` (e.g., Swift Testing), warn mode calls the violation handler directly.
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var _inXCTestContext = false
+    #else
+    private static var _inXCTestContext = false
+    #endif
     public static var inXCTestContext: Bool {
         get { lock.withLock { _inXCTestContext } }
         set { lock.withLock { _inXCTestContext = newValue } }
     }
 
     /// Whether swizzling has been applied (only needs to happen once).
+    #if compiler(>=6.0)
     nonisolated(unsafe) private static var hasSwizzled = false
+    #else
+    private static var hasSwizzled = false
+    #endif
 
     // MARK: - Public API
 

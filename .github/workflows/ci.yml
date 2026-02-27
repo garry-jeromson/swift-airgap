@@ -13,18 +13,26 @@ jobs:
     strategy:
       matrix:
         include:
+          - name: "Swift 5.10 (Build Only)"
+            xcode: "15.4"
+            runner: macos-15
+            run-tests: false
+            swift6-consumer: false
           - name: "Swift 6.0 (Build Only)"
             xcode: "16.2"
             runner: macos-15
             run-tests: false
+            swift6-consumer: true
           - name: "Swift 6.1 (Build & Test)"
             xcode: "16.4"
             runner: macos-15
             run-tests: true
+            swift6-consumer: true
           - name: "Swift 6.2 (Build & Test)"
             xcode: "26.2"
             runner: macos-26
             run-tests: true
+            swift6-consumer: true
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +43,7 @@ jobs:
         run: swift build --build-tests
 
       - name: Build consumer integration test
+        if: ${{ matrix.swift6-consumer }}
         run: swift build --package-path IntegrationTests/Swift6Consumer
 
       - name: Run tests
