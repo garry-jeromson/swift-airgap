@@ -454,7 +454,7 @@ public enum Airgap {
         if Thread.isMainThread {
             work()
         } else {
-            DispatchQueue.main.async { work() }
+            DispatchQueue.main.sync { work() }
         }
     }
 
