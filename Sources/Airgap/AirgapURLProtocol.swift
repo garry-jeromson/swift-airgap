@@ -76,6 +76,14 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
             return false
         }
 
+        // Yield to passthrough protocols (e.g., mock URLProtocols like Mocker's MockingURLProtocol).
+        // If any passthrough protocol can handle this request, let it through instead of blocking.
+        for proto in Airgap.passthroughProtocols {
+            if proto.canInit(with: request) {
+                return false
+            }
+        }
+
         // Capture the call stack and request if not already captured by the resume() swizzle.
         // The resume() swizzle provides better call stacks (user's code) vs canInit (URLProtocol internals).
         if let urlString = request.url?.absoluteString {

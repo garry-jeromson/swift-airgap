@@ -86,6 +86,27 @@ public enum Airgap {
         set { lock.withLock { _allowedHosts = newValue } }
     }
 
+    /// URLProtocol classes that take priority over Airgap's interception.
+    ///
+    /// When a request arrives, Airgap checks each passthrough protocol's `canInit(with:)`.
+    /// If any returns `true`, Airgap yields and lets that protocol handle the request.
+    /// This allows mock URLProtocol implementations (e.g., Mocker's `MockingURLProtocol`)
+    /// to coexist with Airgap — mocked requests go through the mock, unmocked requests are blocked.
+    ///
+    /// Example:
+    /// ```swift
+    /// Airgap.passthroughProtocols = [MockingURLProtocol.self]
+    /// ```
+    #if compiler(>=6.0)
+    nonisolated(unsafe) private static var _passthroughProtocols: [URLProtocol.Type] = []
+    #else
+    private static var _passthroughProtocols: [URLProtocol.Type] = []
+    #endif
+    public static var passthroughProtocols: [URLProtocol.Type] {
+        get { lock.withLock { _passthroughProtocols } }
+        set { lock.withLock { _passthroughProtocols = newValue } }
+    }
+
     /// Called when a network violation is detected. Defaults to `XCTFail()`.
     /// Set to `{ Issue.record($0) }` for Swift Testing, or any custom handler.
     ///
