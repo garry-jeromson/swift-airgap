@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `writeReport()` now returns `Bool` indicating success/failure (`@discardableResult`)
 - `make check` convenience target (runs lint + tests)
 - Direct `AsyncMutex` unit tests
-- CI now runs tests on Swift 5.10 and 6.0 (previously build-only)
+- CI now runs tests on Swift 5.10 (previously build-only)
 - CHANGELOG.md
 - KMP/Ktor interception documentation in README
 - Swift version compatibility section in README
