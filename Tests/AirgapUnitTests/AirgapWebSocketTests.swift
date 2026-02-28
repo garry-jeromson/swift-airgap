@@ -67,6 +67,20 @@ extension AllAirgapUnitTests {
             #expect(Airgap.violations.count == 0, "Allowed host should not produce a violation")
         }
 
+        @Test("WebSocket interception works with responseDelay set") func webSocketInterceptionWorksWithResponseDelay() throws {
+            Airgap.responseDelay = 1.0
+            Airgap.activate()
+
+            let session = URLSession(configuration: .default)
+            let task = try session.webSocketTask(with: #require(URL(string: "wss://example.com/ws-delay")))
+            task.resume()
+
+            // WebSocket interception is synchronous in the resume swizzle (cancel + report),
+            // so responseDelay should not affect it
+            #expect(Airgap.violations.count == 1)
+            #expect(Airgap.violations.first?.url.contains("example.com/ws-delay") ?? false)
+        }
+
         @Test("WebSocket task is cancelled after violation") func webSocketTaskIsCancelledAfterViolation() async throws {
             Airgap.activate()
 
