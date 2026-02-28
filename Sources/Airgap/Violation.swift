@@ -12,12 +12,15 @@ public struct Violation: Sendable, Equatable, Codable {
     public let callStack: [String]
     /// When the violation was detected. Encoded as ISO 8601 in JSON reports.
     public let timestamp: Date
+    /// The `Content-Type` header of the intercepted request, if present.
+    public let contentType: String?
 
-    public init(testName: String, httpMethod: String, url: String, callStack: [String], timestamp: Date = Date()) {
+    public init(testName: String, httpMethod: String, url: String, callStack: [String], timestamp: Date = Date(), contentType: String? = nil) {
         self.testName = testName
         self.httpMethod = httpMethod
         self.url = url
         self.callStack = callStack
         self.timestamp = timestamp
+        self.contentType = contentType
     }
 }

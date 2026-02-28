@@ -333,31 +333,38 @@ public enum Airgap {
 
     // MARK: - Violation reporting
 
-    /// Reports a network violation through the configured handler.
-    static func reportViolation(method: String, url: String, callStack: [String], testName: String, request: URLRequest? = nil) {
+    /// Builds the human-readable violation message from a `Violation` struct.
+    public static func violationMessage(for violation: Violation) -> String {
         var message = """
-        Airgap: Blocked \(method) request to \(url). \
+        Airgap: Blocked \(violation.httpMethod) request to \(violation.url). \
         Tests must not make real network calls. \
         Use a mock or stub instead.
         """
 
-        // Include Content-Type if present (helps identify the type of request)
-        if let contentType = request?.value(forHTTPHeaderField: "Content-Type") {
+        if let contentType = violation.contentType {
             message += "\nContent-Type: \(contentType)"
         }
 
         message += "\nHint: Use Airgap.allowNetworkAccess() for this test, add the host to Airgap.allowedHosts, or use .warn mode for non-blocking violations."
 
+        return message
+    }
+
+    /// Reports a network violation through the configured handler.
+    static func reportViolation(method: String, url: String, callStack: [String], testName: String, request: URLRequest? = nil) {
         // Always collect violations for programmatic access via violations/violationSummary()
         let violation = Violation(
             testName: testName,
             httpMethod: method,
             url: url,
-            callStack: callStack
+            callStack: callStack,
+            contentType: request?.value(forHTTPHeaderField: "Content-Type")
         )
         lock.withLock {
             _violations.append(violation)
         }
+
+        let message = violationMessage(for: violation)
 
         // Notify the structured reporter if one is configured.
         if let reporter = violationReporter {
@@ -367,11 +374,10 @@ public enum Airgap {
         // XCTest APIs (XCTFail, XCTExpectFailure) must be called on the main thread.
         // startLoading() runs on com.apple.CFNetwork.CustomProtocols, so we dispatch when needed.
         let handler = violationHandler
-        let finalMessage = message
 
         switch mode {
         case .fail:
-            onMainThread { handler(finalMessage) }
+            onMainThread { handler(message) }
         case .warn:
             // In warn mode, report the violation without failing the test.
             // XCTExpectFailure is only safe in an XCTest context — calling it from Swift Testing
@@ -380,14 +386,14 @@ public enum Airgap {
             if inXCTestContext {
                 onMainThread {
                     XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
-                        handler(finalMessage)
+                        handler(message)
                     }
                 }
             } else {
-                handler(finalMessage)
+                handler(message)
             }
             #else
-            handler(finalMessage)
+            handler(message)
             #endif
         }
     }

@@ -93,19 +93,11 @@ extension AirgapTrait: TestScoping {
         let previousTestName = AirgapURLProtocol.currentTestName
 
         Airgap.configureFromEnvironment()
-        // In fail mode, record violations as Swift Testing Issues.
-        // In warn mode, wrap violations in withKnownIssue so they appear in
-        // the test navigator as known issues without failing the test.
         let effectiveMode = modeOverride ?? Airgap.mode
-        if effectiveMode == .warn {
-            Airgap.violationHandler = { message in
-                withKnownIssue("Airgap violation (warning mode)") {
-                    Issue.record("\(message)")
-                }
-            }
-        } else {
-            Airgap.violationHandler = { Issue.record("\($0)") }
-        }
+        // No-op handler: violations are still collected in Airgap.violations
+        // by reportViolation(). We report them in the defer block below,
+        // where we're in the test's task context for correct attribution.
+        Airgap.violationHandler = { _ in }
         if !additionalAllowedHosts.isEmpty {
             Airgap.allowedHosts = Airgap.allowedHosts.union(additionalAllowedHosts)
         }
@@ -117,6 +109,20 @@ extension AirgapTrait: TestScoping {
         Airgap.activate()
 
         defer {
+            // Report violations from within the test's task context so
+            // Swift Testing can attribute Issues to the correct test.
+            let collectedViolations = Airgap.violations
+            for violation in collectedViolations {
+                let message = Airgap.violationMessage(for: violation)
+                if effectiveMode == .warn {
+                    withKnownIssue("Airgap violation (warning mode)") {
+                        Issue.record("\(message)")
+                    }
+                } else {
+                    Issue.record("\(message)")
+                }
+            }
+
             if let summary = Airgap.violationSummary() {
                 print(summary)
             }
