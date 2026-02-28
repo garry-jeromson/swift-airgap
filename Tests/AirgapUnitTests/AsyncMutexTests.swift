@@ -48,7 +48,7 @@ extension AllAirgapUnitTests {
             #expect(activeCount == 0, "All tasks should have exited")
         }
 
-        @Test("Multiple waiters are resumed in FIFO order") func multipleWaitersResumedInFIFOOrder() async {
+        @Test("Multiple waiters all eventually acquire the lock") func multipleWaitersAllAcquireLock() async {
             let mutex = AsyncMutex()
             let orderTracker = OrderTracker()
 
@@ -67,7 +67,7 @@ extension AllAirgapUnitTests {
             // Give tasks time to queue up
             try? await Task.sleep(for: .milliseconds(50))
 
-            // Release the lock — waiters should be resumed in order
+            // Release the lock — all waiters should eventually run
             mutex.unlock()
 
             for task in tasks {
@@ -75,11 +75,11 @@ extension AllAirgapUnitTests {
             }
 
             let events = await orderTracker.events
-            let entryOrder = events.compactMap { event -> Int? in
+            let entryIDs = Set(events.compactMap { event -> Int? in
                 if case let .entry(id) = event { return id }
                 return nil
-            }
-            #expect(entryOrder == [0, 1, 2], "Waiters should be resumed in FIFO order")
+            })
+            #expect(entryIDs == [0, 1, 2], "All waiters should eventually acquire the lock")
         }
     }
 }

@@ -29,26 +29,26 @@ jobs:
             xcode: "15.4"
             runner: macos-14
             run-tests: true
-            swift6-consumer: false
+            consumer-tests: false
             swift-testing-consumer: false
           - name: "Swift 6.0 (Build & Test)"
             xcode: "16.2"
             runner: macos-15
             run-tests: true
-            swift6-consumer: true
+            consumer-tests: true
             swift-testing-consumer: false
           - name: "Swift 6.1 (Build & Test)"
             xcode: "16.4"
             runner: macos-15
             run-tests: true
-            swift6-consumer: true
+            consumer-tests: true
             swift-testing-consumer: true
             coverage: true
           - name: "Swift 6.2 (Build & Test)"
             xcode: "26.2"
             runner: macos-26
             run-tests: true
-            swift6-consumer: true
+            consumer-tests: true
             swift-testing-consumer: true
     steps:
       - uses: actions/checkout@v4
@@ -60,11 +60,11 @@ jobs:
         run: swift build --build-tests
 
       - name: Build Swift6Consumer integration test
-        if: ${{ matrix.swift6-consumer }}
+        if: ${{ matrix.consumer-tests }}
         run: make build-swift6-consumer
 
       - name: Build XCTest consumer integration test
-        if: ${{ matrix.swift6-consumer }}
+        if: ${{ matrix.consumer-tests }}
         run: make build-xctest-consumer
 
       - name: Run tests
@@ -104,11 +104,11 @@ jobs:
           retention-days: 14
 
       - name: Test XCTest consumer integration
-        if: ${{ matrix.run-tests && matrix.swift6-consumer }}
+        if: ${{ matrix.run-tests && matrix.consumer-tests }}
         run: make test-xctest-consumer
 
       - name: Test NSPrincipalClass consumer integration
-        if: ${{ matrix.run-tests && matrix.swift6-consumer }}
+        if: ${{ matrix.run-tests && matrix.consumer-tests }}
         run: make test-nsprincipalclass-consumer
 
       - name: Test Swift Testing consumer integration

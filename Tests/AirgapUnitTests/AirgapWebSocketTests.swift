@@ -70,6 +70,8 @@ extension AllAirgapUnitTests {
         @Test("WebSocket interception works with responseDelay set") func webSocketInterceptionWorksWithResponseDelay() throws {
             Airgap.responseDelay = 1.0
             Airgap.activate()
+            // Clear any violations from prior tests whose delayed errors may still be in-flight
+            Airgap.clearViolations()
 
             let session = URLSession(configuration: .default)
             let task = try session.webSocketTask(with: #require(URL(string: "wss://example.com/ws-delay")))
