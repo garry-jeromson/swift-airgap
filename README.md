@@ -574,6 +574,16 @@ struct KtorTests {
 - **Sessions created before `activate()`** with a custom configuration — if Ktor (or any KMP code) eagerly creates a session during module load before Airgap activates, that session won't have the guard protocol. Move `Airgap.activate()` as early as possible, or use `AirgapObserver` which activates in `testBundleWillStart`.
 - **Non-URLSession HTTP clients** — custom KMP expect/actual implementations that use lower-level APIs (e.g., `CFNetwork` directly) won't be intercepted.
 
+## Swift Version Compatibility
+
+| Swift Version | Build | XCTest (`AirgapObserver`, `AirgapTestCase`) | Swift Testing (`.airgapped` trait) |
+|---|---|---|---|
+| 5.10 | Yes | Yes | No (Swift Testing not available) |
+| 6.0 | Yes | Yes | Metadata-only (trait compiles but `provideScope` is absent — use manual `activate()`/`deactivate()`) |
+| 6.1+ | Yes | Yes | Full support (automatic activate/deactivate via `TestScoping`) |
+
+For Swift 5.10 and 6.0, use `AirgapObserver` (bundle-level) or `AirgapTestCase` (per-class) for automatic activation.
+
 ## Troubleshooting
 
 **Tests fail with "Airgap: Blocked request..."**
