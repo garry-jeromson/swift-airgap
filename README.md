@@ -191,6 +191,20 @@ struct MyTests {
 
 The allow flag is automatically reset on the next `activate()` call.
 
+### Scoped Network Access
+
+Use `withNetworkAccessAllowed` to allow network access for a specific block of code. The previous state is restored afterward, even if the body throws:
+
+```swift
+Airgap.withNetworkAccessAllowed {
+    // Network calls are allowed here
+    let data = try await URLSession.shared.data(from: url)
+}
+// Network calls are blocked again here
+```
+
+This is safer than `allowNetworkAccess()` because it automatically restores the previous state. An async overload is also available.
+
 ### Allowed Hosts
 
 Allow specific hosts or domains to pass through even when the guard is active. Useful for tests that hit localhost or a mock server:

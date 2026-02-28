@@ -233,6 +233,27 @@ public enum Airgap {
         AirgapURLProtocol.isAllowed = true
     }
 
+    /// Runs `body` with network access temporarily allowed, restoring the previous state afterward.
+    ///
+    /// This is a scoped alternative to `allowNetworkAccess()` — network access is only allowed
+    /// for the duration of the block, then the previous allow state is restored.
+    @discardableResult
+    public static func withNetworkAccessAllowed<T>(_ body: () throws -> T) rethrows -> T {
+        let saved = AirgapURLProtocol.isAllowed
+        AirgapURLProtocol.isAllowed = true
+        defer { AirgapURLProtocol.isAllowed = saved }
+        return try body()
+    }
+
+    /// Async overload of `withNetworkAccessAllowed(_:)`.
+    @discardableResult
+    public static func withNetworkAccessAllowed<T>(_ body: () async throws -> T) async rethrows -> T {
+        let saved = AirgapURLProtocol.isAllowed
+        AirgapURLProtocol.isAllowed = true
+        defer { AirgapURLProtocol.isAllowed = saved }
+        return try await body()
+    }
+
     /// Returns `true` if the given host matches any entry in `allowedHosts`.
     ///
     /// Supports exact matches and wildcard patterns:

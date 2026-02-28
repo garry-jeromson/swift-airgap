@@ -29,7 +29,7 @@ Intercepted requests receive a configurable error code (default `NSURLErrorNotCo
 
 | File | Purpose |
 |---|---|
-| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, `passthroughProtocols`, violation reporting (text and JSON formats), `isActive`, `violationReporter`, `violationMessage(for:)`, `errorCode`, `responseDelay`, `withConfiguration()` |
+| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, `passthroughProtocols`, violation reporting (text and JSON formats), `isActive`, `violationReporter`, `violationMessage(for:)`, `errorCode`, `responseDelay`, `withConfiguration()`, `withNetworkAccessAllowed()`, `writeReport() -> Bool` |
 | `Sources/Airgap/AirgapURLProtocol.swift` | URLProtocol subclass that intercepts HTTP/HTTPS requests |
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
 | `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |
