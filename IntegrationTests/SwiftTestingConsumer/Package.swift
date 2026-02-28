@@ -6,14 +6,14 @@ let package = Package(
     name: "SwiftTestingConsumer",
     platforms: [.macOS(.v13)],
     dependencies: [
-        .package(path: "../.."),
+        .package(path: "../..")
     ],
     targets: [
         .testTarget(
             name: "SwiftTestingConsumerTests",
             dependencies: [
-                .product(name: "Airgap", package: "swift-airgap"),
+                .product(name: "Airgap", package: "swift-airgap")
             ]
-        ),
+        )
     ]
 )

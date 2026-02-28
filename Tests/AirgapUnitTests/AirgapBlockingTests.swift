@@ -285,7 +285,7 @@ final class AirgapBlockingTests {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             var cancellable: AnyCancellable?
             cancellable = URLSession.shared.dataTaskPublisher(for: url)
-                .sink(receiveCompletion: { completion in
+                .sink(receiveCompletion: { _ in
                     _ = cancellable  // prevent unused warning
                     continuation.resume()
                 }, receiveValue: { _ in })
@@ -353,6 +353,7 @@ final class AirgapBlockingTests {
     /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
     /// the configuration was obtained before activate() — closing the timing gap for
     /// KMP/Ktor code that eagerly creates its URLSession during module load.
+    // swiftlint:disable:next line_length
     @Test("Session from pre activation config is intercepted via init swizzle") func sessionFromPreActivationConfigIsInterceptedViaInitSwizzle() async {
         // Grab config BEFORE activation — simulates Ktor initializing early.
         let preActivationConfig = URLSessionConfiguration.default

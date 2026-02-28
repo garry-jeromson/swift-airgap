@@ -370,6 +370,7 @@ public enum Airgap {
             message += "\nContent-Type: \(contentType)"
         }
 
+        // swiftlint:disable:next line_length
         message += "\nHint: Use Airgap.allowNetworkAccess() for this test, add the host to Airgap.allowedHosts, or use .warn mode for non-blocking violations."
 
         return message

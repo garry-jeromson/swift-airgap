@@ -119,7 +119,7 @@ final class MockHTTPProtocol: URLProtocol {
 
     override static func canInit(with request: URLRequest) -> Bool {
         guard let scheme = request.url?.scheme?.lowercased(),
-              (scheme == "http" || scheme == "https") else {
+              scheme == "http" || scheme == "https" else {
             return false
         }
         return request.url?.host == mockedHost

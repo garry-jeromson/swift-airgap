@@ -115,12 +115,12 @@ final class AirgapConfigurationTests {
         Airgap.violationHandler = { outerCapture.record($0) }
 
         let innerCapture = ViolationCapture()
-        Airgap.withConfiguration(violationHandler: { innerCapture.record($0) }) {
+        Airgap.withConfiguration(violationHandler: { innerCapture.record($0) }, body: {
             // Call the handler directly to verify it's the inner one
             // (reportViolation dispatches to main thread async, which doesn't
             // complete before withConfiguration restores the handler)
             Airgap.violationHandler("test violation")
-        }
+        })
 
         // After withConfiguration, handler should be restored
         Airgap.violationHandler("outer violation")
