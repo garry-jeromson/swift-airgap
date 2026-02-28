@@ -52,38 +52,52 @@ extension AllAirgapUnitTests {
 
         // MARK: - Report edge cases
 
-        @Test("Write report handles unwritable path") func writeReportHandlesUnwritablePath() async throws {
-            Airgap.reportPath = "/nonexistent/deep/path/airgap-report.txt"
+        @Test("Write report handles unwritable path and returns false") func writeReportHandlesUnwritablePath() async throws {
+            Airgap.reportPath = "/proc/nonexistent/deep/path/airgap-report.txt"
             Airgap.activate()
 
             let url = try #require(URL(string: "https://example.com/api/unwritable"))
             _ = try? await URLSession.shared.data(from: url)
 
-            // Should not crash
-            Airgap.writeReport()
+            let result = Airgap.writeReport()
+            #expect(result == false, "writeReport should return false on I/O error")
         }
 
-        @Test("Write report with nil path is a no-op") func writeReportWithNilPathIsANoOp() async throws {
+        @Test("Write report with nil path returns true") func writeReportWithNilPathReturnsTrue() async throws {
             Airgap.reportPath = nil
             Airgap.activate()
 
             let url = try #require(URL(string: "https://example.com/api/nil-path-test"))
             _ = try? await URLSession.shared.data(from: url)
 
-            // Should not crash or create any file
-            Airgap.writeReport()
-
+            let result = Airgap.writeReport()
+            #expect(result == true, "writeReport should return true when no reportPath is set")
             #expect(Airgap.violations.count == 1, "Violations should still be collected")
         }
 
-        @Test("Write report with no violations does not create file") func writeReportWithNoViolationsDoesNotCreateFile() {
+        @Test("Write report with no violations returns true") func writeReportWithNoViolationsReturnsTrue() {
             let tempPath = FileManager.default.temporaryDirectory
                 .appendingPathComponent("ng-empty-\(UUID().uuidString).txt").path
             Airgap.reportPath = tempPath
 
-            Airgap.writeReport()
-
+            let result = Airgap.writeReport()
+            #expect(result == true, "writeReport should return true when there are no violations")
             #expect(!FileManager.default.fileExists(atPath: tempPath))
+        }
+
+        @Test("Write report returns true on success") func writeReportReturnsTrueOnSuccess() async throws {
+            let tempPath = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ng-success-\(UUID().uuidString).txt").path
+            defer { try? FileManager.default.removeItem(atPath: tempPath) }
+            Airgap.reportPath = tempPath
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/success-test"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            let result = Airgap.writeReport()
+            #expect(result == true, "writeReport should return true on successful write")
+            #expect(FileManager.default.fileExists(atPath: tempPath))
         }
 
         // MARK: - JSON report output
