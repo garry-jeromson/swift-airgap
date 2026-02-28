@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-02-28
+
 ### Added
 - `Airgap.scoped()` — manual scoping API for Swift Testing on Swift 6.0, providing the same automatic scope serialization, state save/restore, and violation reporting as the `.airgapped` trait
 - `Package@swift-6.0.swift` — version-specific manifest that excludes `AirgapSwiftTestingIntegrationTests` to prevent cross-target concurrency races on Swift 6.0
@@ -129,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reportPath` and `writeReport()` for violation reports.
 - `configureFromEnvironment()` for environment variable configuration.
 
-[Unreleased]: https://github.com/garry-jeromson/swift-airgap/compare/1.6.0...HEAD
+[Unreleased]: https://github.com/garry-jeromson/swift-airgap/compare/1.7.0...HEAD
+[1.7.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.3.1...1.4.0
