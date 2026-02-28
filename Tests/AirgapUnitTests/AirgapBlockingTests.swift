@@ -353,8 +353,8 @@ final class AirgapBlockingTests {
     /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
     /// the configuration was obtained before activate() — closing the timing gap for
     /// KMP/Ktor code that eagerly creates its URLSession during module load.
-    // swiftlint:disable:next line_length
-    @Test("Session from pre activation config is intercepted via init swizzle") func sessionFromPreActivationConfigIsInterceptedViaInitSwizzle() async {
+    @Test("Session from pre activation config is intercepted via init swizzle")
+    func sessionFromPreActivationConfigIsInterceptedViaInitSwizzle() async {
         // Grab config BEFORE activation — simulates Ktor initializing early.
         let preActivationConfig = URLSessionConfiguration.default
 
