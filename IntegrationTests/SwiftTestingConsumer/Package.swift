@@ -13,7 +13,5 @@ let package = Package(
             name: "SwiftTestingConsumerTests",
             dependencies: [
                 .product(name: "Airgap", package: "swift-airgap")
-            ]
-        )
-    ]
-)
+            ])
+    ])

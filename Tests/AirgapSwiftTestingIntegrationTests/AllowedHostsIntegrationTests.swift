@@ -1,12 +1,10 @@
-import Testing
 @testable import Airgap
 import Foundation
+import Testing
 
 extension AllAirgapSwiftTestingTests {
-
     @Suite struct AllowedHostsTests {
-
-        @Test("Allowed host is not blocked") func allowedHostIsNotBlocked() {
+        @Test("Allowed host is not blocked") func allowedHostIsNotBlocked() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["example.com"]
@@ -16,14 +14,14 @@ extension AllAirgapSwiftTestingTests {
                 Airgap.allowedHosts = []
             }
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)
             #expect(capture.isEmpty)
         }
 
-        @Test("Non-allowed host is blocked") func nonAllowedHostIsBlocked() {
+        @Test("Non-allowed host is blocked") func nonAllowedHostIsBlocked() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["localhost"]
@@ -33,7 +31,7 @@ extension AllAirgapSwiftTestingTests {
                 Airgap.allowedHosts = []
             }
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let semaphore = DispatchSemaphore(value: 0)
 
             URLSession.shared.dataTask(with: url) { _, _, _ in
@@ -44,7 +42,7 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test("Multiple allowed hosts work") func multipleAllowedHostsWork() {
+        @Test("Multiple allowed hosts work") func multipleAllowedHostsWork() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.allowedHosts = ["localhost", "127.0.0.1"]
@@ -54,10 +52,10 @@ extension AllAirgapSwiftTestingTests {
                 Airgap.allowedHosts = []
             }
 
-            let localhostURL = URL(string: "https://localhost/api")!
+            let localhostURL = try #require(URL(string: "https://localhost/api"))
             #expect(AirgapURLProtocol.canInit(with: URLRequest(url: localhostURL)) == false)
 
-            let loopbackURL = URL(string: "https://127.0.0.1/api")!
+            let loopbackURL = try #require(URL(string: "https://127.0.0.1/api"))
             #expect(AirgapURLProtocol.canInit(with: URLRequest(url: loopbackURL)) == false)
 
             #expect(capture.isEmpty)

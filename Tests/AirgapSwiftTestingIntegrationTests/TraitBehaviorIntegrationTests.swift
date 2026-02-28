@@ -1,23 +1,21 @@
-import Testing
 @testable import Airgap
 import Foundation
+import Testing
 
 extension AllAirgapSwiftTestingTests {
-
     @Suite(.airgapped)
     struct TraitSuiteLevelTests {
-
-        @Test("Trait blocks network requests") func traitBlocksNetworkRequests() {
-            let url = URL(string: "https://example.com/api")!
+        @Test("Trait blocks network requests") func traitBlocksNetworkRequests() throws {
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == true)
         }
 
-        @Test("Trait allows opt out") func traitAllowsOptOut() {
+        @Test("Trait allows opt out") func traitAllowsOptOut() throws {
             Airgap.allowNetworkAccess()
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)
@@ -32,18 +30,17 @@ extension AllAirgapSwiftTestingTests {
     }
 
     @Suite struct TraitPerTestTests {
-
-        @Test("Guarded test blocks requests", .airgapped) func guardedTestBlocksRequests() {
-            let url = URL(string: "https://example.com/api")!
+        @Test("Guarded test blocks requests", .airgapped) func guardedTestBlocksRequests() throws {
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == true)
         }
 
-        @Test("Unguarded test does not block") func unguardedTestDoesNotBlock() {
+        @Test("Unguarded test does not block") func unguardedTestDoesNotBlock() throws {
             Airgap.deactivate()
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)
@@ -51,11 +48,10 @@ extension AllAirgapSwiftTestingTests {
     }
 
     @Suite struct TraitAbsenceTests {
-
-        @Test("Unguarded suite does not block") func unguardedSuiteDoesNotBlock() {
+        @Test("Unguarded suite does not block") func unguardedSuiteDoesNotBlock() throws {
             Airgap.deactivate()
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)
@@ -63,7 +59,6 @@ extension AllAirgapSwiftTestingTests {
     }
 
     @Suite struct TraitStateIsolationTests {
-
         @Test("Trait restores allowed hosts") func traitRestoresAllowedHosts() {
             // Set allowedHosts before trait scope
             let previousHosts = Airgap.allowedHosts
@@ -92,7 +87,6 @@ extension AllAirgapSwiftTestingTests {
     }
 
     @Suite(.serialized) struct TraitViolationClearingTests {
-
         /// Verifies that provideScope clears violations before each test.
         /// Uses manual activation instead of the trait to avoid Issue.record noise.
         @Test("Violations are cleared between scopes") func violationsAreClearedBetweenScopes() async throws {
@@ -105,7 +99,7 @@ extension AllAirgapSwiftTestingTests {
             Airgap.clearViolations()
             Airgap.activate()
 
-            let url = URL(string: "https://example.com/api/first-scope")!
+            let url = try #require(URL(string: "https://example.com/api/first-scope"))
             do {
                 _ = try await URLSession.shared.data(from: url)
             } catch {

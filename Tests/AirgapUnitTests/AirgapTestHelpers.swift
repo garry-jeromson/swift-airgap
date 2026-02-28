@@ -1,5 +1,5 @@
-import Foundation
 @testable import Airgap
+import Foundation
 
 /// Drains the main queue so that async-dispatched violation handlers are processed.
 /// `reportViolation` dispatches the handler to `DispatchQueue.main.async` in `.fail` mode
@@ -75,7 +75,6 @@ final class MockSchemeProtocol: URLProtocol {
 
 /// A concrete subclass of AirgapTestCase for testing the lifecycle methods.
 final class LifecycleTestCase: AirgapTestCase {
-
     func invokeSetUp() {
         setUp()
     }
@@ -119,7 +118,8 @@ final class MockHTTPProtocol: URLProtocol {
 
     override static func canInit(with request: URLRequest) -> Bool {
         guard let scheme = request.url?.scheme?.lowercased(),
-              scheme == "http" || scheme == "https" else {
+              scheme == "http" || scheme == "https"
+        else {
             return false
         }
         return request.url?.host == mockedHost

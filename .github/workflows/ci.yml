@@ -13,14 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install SwiftLint & SwiftFormat
-        run: brew install swiftlint swiftformat
+      - name: Select Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
 
-      - name: SwiftLint
-        run: swiftlint lint --strict --reporter github-actions-logging
-
-      - name: SwiftFormat
-        run: swiftformat --lint .
+      - name: Lint
+        run: make lint-check
 
   build-and-test:
     name: ${{ matrix.name }}

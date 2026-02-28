@@ -5,6 +5,7 @@ included:
 
 excluded:
   - .build
+  - IntegrationTests/**/.build
 
 disabled_rules:
   - identifier_name

@@ -4,13 +4,12 @@ import Testing
 
 @Suite(.serialized)
 struct TestTraitTests {
-
     @Test(.airgapped(mode: .warn))
     func requestIsBlockedInWarnMode() async throws {
         #expect(Airgap.mode == .warn)
 
         do {
-            _ = try await URLSession.shared.data(from: URL(string: "https://example.com")!)
+            _ = try await URLSession.shared.data(from: #require(URL(string: "https://example.com")))
             Issue.record("Should have been blocked")
         } catch {
             #expect((error as NSError).code == URLError.notConnectedToInternet.rawValue)
@@ -39,7 +38,7 @@ struct TestTraitTests {
     @Test(.airgapped(mode: .warn))
     func violationsAreReportedInTestScope() async throws {
         do {
-            _ = try await URLSession.shared.data(from: URL(string: "https://example.com")!)
+            _ = try await URLSession.shared.data(from: #require(URL(string: "https://example.com")))
             Issue.record("Should have been blocked")
         } catch {
             #expect((error as NSError).code == URLError.notConnectedToInternet.rawValue)

@@ -1,12 +1,11 @@
-import Testing
 @testable import Airgap
 import Foundation
+import Testing
 
 /// Lives outside `AllAirgapSwiftTestingTests` because the test body acquires
 /// `Airgap.scopeLock` directly. Nesting it under the `.scopeLocked` parent
 /// would deadlock (the trait holds the lock, then the test tries to acquire it again).
 @Suite struct ScopeSerializationTests {
-
     @Test("Scope lock serializes concurrent access") func scopeLockSerializesConcurrentAccess() async {
         // Verify that the scopeLock prevents concurrent scopes from overlapping.
         // Two tasks try to acquire the lock, modify global state, sleep, and check

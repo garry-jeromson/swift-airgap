@@ -1,5 +1,6 @@
 --swiftversion 6.0
 --indent 4
 --header ignore
---disable redundantSelf
+--disable redundantSelf,trailingCommas,wrapMultilineStatementBraces
+--closingparen same-line
 --exclude .build,.swiftpm

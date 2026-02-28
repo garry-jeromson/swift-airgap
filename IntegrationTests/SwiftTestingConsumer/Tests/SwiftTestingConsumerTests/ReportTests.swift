@@ -4,7 +4,6 @@ import Testing
 
 @Suite(.serialized)
 struct ReportTests {
-
     /// Verifies that the `.airgapped` trait calls `writeReport()` automatically,
     /// producing a report file when `reportPath` is set before the trait scope runs.
     @Test(.airgapped(mode: .warn))
@@ -14,7 +13,7 @@ struct ReportTests {
         Airgap.reportPath = tempPath
 
         do {
-            _ = try await URLSession.shared.data(from: URL(string: "https://example.com")!)
+            _ = try await URLSession.shared.data(from: #require(URL(string: "https://example.com")))
             Issue.record("Should have been blocked")
         } catch {
             #expect((error as NSError).code == URLError.notConnectedToInternet.rawValue)
@@ -41,7 +40,7 @@ struct ReportTests {
         Airgap.reportPath = tempPath
 
         do {
-            _ = try await URLSession.shared.data(from: URL(string: "https://example.com/api/report")!)
+            _ = try await URLSession.shared.data(from: #require(URL(string: "https://example.com/api/report")))
             Issue.record("Should have been blocked")
         } catch {
             #expect((error as NSError).code == URLError.notConnectedToInternet.rawValue)

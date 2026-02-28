@@ -1,6 +1,6 @@
 import Foundation
 #if canImport(XCTest)
-import XCTest
+    import XCTest
 #endif
 
 /// Detects and fails any test that attempts a real HTTP/HTTPS network request.
@@ -8,7 +8,6 @@ import XCTest
 /// Supports activation at the test-target, suite, or individual-test level.
 /// Tests that legitimately need network access can opt out via `allowNetworkAccess()`.
 public enum Airgap {
-
     // MARK: - Types
 
     /// Controls how violations are reported.
@@ -37,9 +36,9 @@ public enum Airgap {
     @TaskLocal static var scopeLockHeld = false
 
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _mode: Mode = .fail
+        private nonisolated(unsafe) static var _mode: Mode = .fail
     #else
-    private static var _mode: Mode = .fail
+        private static var _mode: Mode = .fail
     #endif
     /// The current violation reporting mode. Defaults to `.fail`.
     public static var mode: Mode {
@@ -48,9 +47,9 @@ public enum Airgap {
     }
 
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _reportPath: String?
+        private nonisolated(unsafe) static var _reportPath: String?
     #else
-    private static var _reportPath: String?
+        private static var _reportPath: String?
     #endif
     /// When set, violations are collected and written to this file path.
     public static var reportPath: String? {
@@ -58,79 +57,79 @@ public enum Airgap {
         set { lock.withLock { _reportPath = newValue } }
     }
 
-    /// Violations collected since the last `clearViolations()` call.
-    ///
-    /// Violations accumulate across tests until explicitly cleared. When using `AirgapObserver`,
-    /// this accumulates for the entire bundle lifetime. When using `AirgapTestCase`, violations
-    /// are cleared automatically in `setUp`. Call `clearViolations()` if you need to reset manually.
-    ///
-    /// Thread-safe: reads and writes are protected by an internal lock.
+    // Violations collected since the last `clearViolations()` call.
+    //
+    // Violations accumulate across tests until explicitly cleared. When using `AirgapObserver`,
+    // this accumulates for the entire bundle lifetime. When using `AirgapTestCase`, violations
+    // are cleared automatically in `setUp`. Call `clearViolations()` if you need to reset manually.
+    //
+    // Thread-safe: reads and writes are protected by an internal lock.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _violations: [Violation] = []
+        private nonisolated(unsafe) static var _violations: [Violation] = []
     #else
-    private static var _violations: [Violation] = []
+        private static var _violations: [Violation] = []
     #endif
     public static var violations: [Violation] {
         lock.withLock { _violations }
     }
 
-    /// Hosts that are allowed through even when the guard is active.
-    /// Useful for tests that hit localhost or mock servers.
+    // Hosts that are allowed through even when the guard is active.
+    // Useful for tests that hit localhost or mock servers.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _allowedHosts: Set<String> = []
+        private nonisolated(unsafe) static var _allowedHosts: Set<String> = []
     #else
-    private static var _allowedHosts: Set<String> = []
+        private static var _allowedHosts: Set<String> = []
     #endif
     public static var allowedHosts: Set<String> {
         get { lock.withLock { _allowedHosts } }
         set { lock.withLock { _allowedHosts = newValue } }
     }
 
-    /// URLProtocol classes that take priority over Airgap's interception.
-    ///
-    /// When a request arrives, Airgap checks each passthrough protocol's `canInit(with:)`.
-    /// If any returns `true`, Airgap yields and lets that protocol handle the request.
-    /// This allows mock URLProtocol implementations (e.g., Mocker's `MockingURLProtocol`)
-    /// to coexist with Airgap — mocked requests go through the mock, unmocked requests are blocked.
-    ///
-    /// Example:
-    /// ```swift
-    /// Airgap.passthroughProtocols = [MockingURLProtocol.self]
-    /// ```
+    // URLProtocol classes that take priority over Airgap's interception.
+    //
+    // When a request arrives, Airgap checks each passthrough protocol's `canInit(with:)`.
+    // If any returns `true`, Airgap yields and lets that protocol handle the request.
+    // This allows mock URLProtocol implementations (e.g., Mocker's `MockingURLProtocol`)
+    // to coexist with Airgap — mocked requests go through the mock, unmocked requests are blocked.
+    //
+    // Example:
+    // ```swift
+    // Airgap.passthroughProtocols = [MockingURLProtocol.self]
+    // ```
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _passthroughProtocols: [URLProtocol.Type] = []
+        private nonisolated(unsafe) static var _passthroughProtocols: [URLProtocol.Type] = []
     #else
-    private static var _passthroughProtocols: [URLProtocol.Type] = []
+        private static var _passthroughProtocols: [URLProtocol.Type] = []
     #endif
     public static var passthroughProtocols: [URLProtocol.Type] {
         get { lock.withLock { _passthroughProtocols } }
         set { lock.withLock { _passthroughProtocols = newValue } }
     }
 
-    /// Called when a network violation is detected. Defaults to `XCTFail()`.
-    ///
-    /// When using the `.airgapped` Swift Testing trait, this handler is managed by the trait
-    /// (set to a no-op during the test body; violations are reported via `Issue.record()` in the
-    /// trait's scope teardown for correct test attribution). For custom reporting in Swift Testing,
-    /// use `violationReporter` instead.
-    ///
-    /// Thread-safe: reads and writes are protected by an internal lock.
+    // Called when a network violation is detected. Defaults to `XCTFail()`.
+    //
+    // When using the `.airgapped` Swift Testing trait, this handler is managed by the trait
+    // (set to a no-op during the test body; violations are reported via `Issue.record()` in the
+    // trait's scope teardown for correct test attribution). For custom reporting in Swift Testing,
+    // use `violationReporter` instead.
+    //
+    // Thread-safe: reads and writes are protected by an internal lock.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _violationHandler: @Sendable (String) -> Void = { message in
-        #if canImport(XCTest)
-        XCTFail(message)
-        #else
-        assertionFailure(message)
-        #endif
-    }
+        private nonisolated(unsafe) static var _violationHandler: @Sendable (String) -> Void = { message in
+            #if canImport(XCTest)
+                XCTFail(message)
+            #else
+                assertionFailure(message)
+            #endif
+        }
     #else
-    private static var _violationHandler: @Sendable (String) -> Void = { message in
-        #if canImport(XCTest)
-        XCTFail(message)
-        #else
-        assertionFailure(message)
-        #endif
-    }
+        private static var _violationHandler: @Sendable (String) -> Void = { message in
+            #if canImport(XCTest)
+                XCTFail(message)
+            #else
+                assertionFailure(message)
+            #endif
+        }
     #endif
     public static var violationHandler: @Sendable (String) -> Void {
         get { lock.withLock { _violationHandler } }
@@ -142,62 +141,62 @@ public enum Airgap {
         AirgapURLProtocol.isActive
     }
 
-    /// Called when a network violation is detected with the full `Violation` struct.
-    /// Use for structured analytics, CI integration, or custom reporting. Called in addition
-    /// to `violationHandler`; `nil` by default.
+    // Called when a network violation is detected with the full `Violation` struct.
+    // Use for structured analytics, CI integration, or custom reporting. Called in addition
+    // to `violationHandler`; `nil` by default.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _violationReporter: (@Sendable (Violation) -> Void)?
+        private nonisolated(unsafe) static var _violationReporter: (@Sendable (Violation) -> Void)?
     #else
-    private static var _violationReporter: (@Sendable (Violation) -> Void)?
+        private static var _violationReporter: (@Sendable (Violation) -> Void)?
     #endif
     public static var violationReporter: (@Sendable (Violation) -> Void)? {
         get { lock.withLock { _violationReporter } }
         set { lock.withLock { _violationReporter = newValue } }
     }
 
-    /// The URL error code delivered to intercepted requests. Defaults to `NSURLErrorNotConnectedToInternet`.
+    // The URL error code delivered to intercepted requests. Defaults to `NSURLErrorNotConnectedToInternet`.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _errorCode: Int = NSURLErrorNotConnectedToInternet
+        private nonisolated(unsafe) static var _errorCode: Int = NSURLErrorNotConnectedToInternet
     #else
-    private static var _errorCode: Int = NSURLErrorNotConnectedToInternet
+        private static var _errorCode: Int = NSURLErrorNotConnectedToInternet
     #endif
     public static var errorCode: Int {
         get { lock.withLock { _errorCode } }
         set { lock.withLock { _errorCode = newValue } }
     }
 
-    /// An optional delay (in seconds) before delivering the error to intercepted requests.
-    /// Defaults to `0` (no delay). Useful for testing timeout handling or loading states.
+    // An optional delay (in seconds) before delivering the error to intercepted requests.
+    // Defaults to `0` (no delay). Useful for testing timeout handling or loading states.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _responseDelay: TimeInterval = 0
+        private nonisolated(unsafe) static var _responseDelay: TimeInterval = 0
     #else
-    private static var _responseDelay: TimeInterval = 0
+        private static var _responseDelay: TimeInterval = 0
     #endif
     public static var responseDelay: TimeInterval {
         get { lock.withLock { _responseDelay } }
         set { lock.withLock { _responseDelay = newValue } }
     }
 
-    /// Whether we're running in an XCTest context (vs Swift Testing or standalone).
-    ///
-    /// Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
-    /// uses `XCTExpectFailure` to show violations in Xcode's issue navigator without failing.
-    /// When `false` (e.g., Swift Testing), warn mode calls the violation handler directly.
+    // Whether we're running in an XCTest context (vs Swift Testing or standalone).
+    //
+    // Set automatically by `AirgapObserver` and `AirgapTestCase`. When `true`, warn mode
+    // uses `XCTExpectFailure` to show violations in Xcode's issue navigator without failing.
+    // When `false` (e.g., Swift Testing), warn mode calls the violation handler directly.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _inXCTestContext = false
+        private nonisolated(unsafe) static var _inXCTestContext = false
     #else
-    private static var _inXCTestContext = false
+        private static var _inXCTestContext = false
     #endif
     public static var inXCTestContext: Bool {
         get { lock.withLock { _inXCTestContext } }
         set { lock.withLock { _inXCTestContext = newValue } }
     }
 
-    /// Whether swizzling has been applied (only needs to happen once).
+    // Whether swizzling has been applied (only needs to happen once).
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var hasSwizzled = false
+        private nonisolated(unsafe) static var hasSwizzled = false
     #else
-    private static var hasSwizzled = false
+        private static var hasSwizzled = false
     #endif
 
     // MARK: - Public API
@@ -278,8 +277,7 @@ public enum Airgap {
         violationReporter: (@Sendable (Violation) -> Void)? = .none,
         errorCode: Int? = nil,
         responseDelay: TimeInterval? = nil,
-        body: () throws -> T
-    ) rethrows -> T {
+        body: () throws -> T) rethrows -> T {
         let savedMode = self.mode
         let savedAllowedHosts = self.allowedHosts
         let savedHandler = self.violationHandler
@@ -384,8 +382,7 @@ public enum Airgap {
             httpMethod: method,
             url: url,
             callStack: callStack,
-            contentType: request?.value(forHTTPHeaderField: "Content-Type")
-        )
+            contentType: request?.value(forHTTPHeaderField: "Content-Type"))
         lock.withLock {
             _violations.append(violation)
         }
@@ -409,17 +406,17 @@ public enum Airgap {
             // XCTExpectFailure is only safe in an XCTest context — calling it from Swift Testing
             // crashes because there is no active XCTestCase.
             #if canImport(XCTest)
-            if inXCTestContext {
-                onMainThread {
-                    XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
-                        handler(message)
+                if inXCTestContext {
+                    onMainThread {
+                        XCTExpectFailure("Airgap violation (warning mode)", strict: false) {
+                            handler(message)
+                        }
                     }
+                } else {
+                    handler(message)
                 }
-            } else {
-                handler(message)
-            }
             #else
-            handler(message)
+                handler(message)
             #endif
         }
     }
@@ -501,8 +498,7 @@ public enum Airgap {
     private static func interceptWebSocketIfNeeded(
         _ task: URLSessionTask,
         url: URL?,
-        urlString: String
-    ) -> Bool {
+        urlString: String) -> Bool {
         let scheme = url?.scheme?.lowercased()
         let isWebSocket = task is URLSessionWebSocketTask
             || scheme == "ws" || scheme == "wss"
@@ -520,8 +516,7 @@ public enum Airgap {
             method: method, url: urlString,
             callStack: Thread.callStackSymbols,
             testName: AirgapURLProtocol.currentTestName,
-            request: task.currentRequest
-        )
+            request: task.currentRequest)
         task.cancel()
         return true
     }
@@ -532,16 +527,14 @@ public enum Airgap {
     /// to inject `AirgapURLProtocol` into any newly-created session configuration.
     private static func swizzleSessionConfigurations() {
         swizzleConfigurationProperty(
-            getter: #selector(getter: URLSessionConfiguration.`default`),
-            label: "default"
-        )
+            getter: #selector(getter: URLSessionConfiguration.default),
+            label: "default")
         swizzleConfigurationProperty(
             getter: #selector(getter: URLSessionConfiguration.ephemeral),
-            label: "ephemeral"
-        )
+            label: "ephemeral")
     }
 
-    private static func swizzleConfigurationProperty(getter original: Selector, label: String) {
+    private static func swizzleConfigurationProperty(getter original: Selector, label _: String) {
         guard let method = class_getClassMethod(URLSessionConfiguration.self, original) else {
             return
         }
@@ -580,8 +573,7 @@ public enum Airgap {
         let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
 
         let swizzledBlock: @convention(block) (
-            AnyObject, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?
-        ) -> URLSession = { obj, config, delegate, queue in
+            AnyObject, URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession = { obj, config, delegate, queue in
             injectProtocol(into: config)
             return originalFunction(obj, selector, config, delegate, queue)
         }

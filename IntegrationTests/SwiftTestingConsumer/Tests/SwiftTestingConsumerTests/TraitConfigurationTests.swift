@@ -4,7 +4,6 @@ import Testing
 
 @Suite(.serialized)
 struct TraitConfigurationTests {
-
     @Test(.airgapped(mode: .warn))
     func warnModeIsSet() {
         #expect(Airgap.mode == .warn)

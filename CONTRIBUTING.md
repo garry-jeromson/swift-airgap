@@ -5,7 +5,7 @@ Thanks for your interest in contributing to Airgap!
 ## Prerequisites
 
 - **Swift 6.1+** (Xcode 16.4+) for running tests
-- **SwiftLint** and **SwiftFormat** for linting (`brew install swiftlint swiftformat`)
+- SwiftLint and SwiftFormat are bundled as SwiftPM plugins — no separate installation needed
 
 ## Getting Started
 
@@ -33,11 +33,12 @@ make test-coverage     # Tests with code coverage
 
 ```bash
 make lint-check        # Check lint + format (same as CI)
+make lint-fix          # Auto-fix lint + format issues
 make lint              # SwiftLint via SwiftPM plugin
 make format            # Auto-format via SwiftPM plugin
 ```
 
-CI runs `swiftlint lint --strict` and `swiftformat --lint .` on every PR. Run `make lint-check` locally before pushing to catch issues early.
+CI runs `make lint-check` on every PR. Run it locally before pushing to catch issues early, or use `make lint-fix` to auto-fix.
 
 ## Submitting Changes
 

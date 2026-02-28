@@ -34,13 +34,10 @@ let package = Package(
         .target(
             name: "Airgap",
             swiftSettings: strictConcurrency,
-            plugins: swiftLintPlugins
-        ),
+            plugins: swiftLintPlugins),
         .testTarget(
             name: "AirgapXCTestIntegrationTests",
             dependencies: ["Airgap"],
             swiftSettings: strictConcurrency,
-            plugins: swiftLintPlugins
-        ),
-    ]
-)
+            plugins: swiftLintPlugins),
+    ])

@@ -1,12 +1,11 @@
-import XCTest
 import Airgap
+import XCTest
 
 // MARK: - AirgapObserver integration tests
 
 /// Tests that AirgapObserver correctly registers as an XCTestObservation observer
 /// and activates/deactivates the guard via the bundle lifecycle callbacks.
 final class AirgapObserverIntegrationTests: XCTestCase {
-
     override func tearDown() {
         Airgap.deactivate()
         super.tearDown()
@@ -31,14 +30,14 @@ final class AirgapObserverIntegrationTests: XCTestCase {
         XCTAssertFalse(AirgapURLProtocol.isActive)
     }
 
-    func testObserverBlocksNetworkCallsViaDefaultHandler() {
+    func testObserverBlocksNetworkCallsViaDefaultHandler() throws {
         let observer = AirgapObserver()
         observer.testBundleWillStart(Bundle.main)
 
         XCTExpectFailure("AirgapObserver should block network calls after testBundleWillStart")
 
         let expectation = expectation(description: "Data task completes")
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
 
         URLSession.shared.dataTask(with: url) { _, _, _ in
             expectation.fulfill()
@@ -47,19 +46,19 @@ final class AirgapObserverIntegrationTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
     }
 
-    func testObserverAllowsOptOutViaAllowNetworkAccess() {
+    func testObserverAllowsOptOutViaAllowNetworkAccess() throws {
         let observer = AirgapObserver()
         observer.testBundleWillStart(Bundle.main)
         Airgap.allowNetworkAccess()
 
         // No XCTExpectFailure — should pass cleanly.
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
         let request = URLRequest(url: url)
 
         XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
     }
 
-    func testObserverResetsAllowFlagBetweenTests() {
+    func testObserverResetsAllowFlagBetweenTests() throws {
         let observer = AirgapObserver()
         observer.testBundleWillStart(Bundle.main)
 
@@ -72,7 +71,7 @@ final class AirgapObserverIntegrationTests: XCTestCase {
         XCTAssertFalse(AirgapURLProtocol.isAllowed)
 
         // The guard should now block requests again
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
         let request = URLRequest(url: url)
         XCTAssertTrue(AirgapURLProtocol.canInit(with: request))
     }

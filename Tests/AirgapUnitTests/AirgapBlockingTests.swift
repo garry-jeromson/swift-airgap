@@ -1,452 +1,447 @@
+@testable import Airgap
 import Combine
 import Foundation
 import Testing
-@testable import Airgap
 
 extension AllAirgapUnitTests {
+    @Suite(.serialized)
+    final class AirgapBlockingTests {
+        private let capture = ViolationCapture()
 
-@Suite(.serialized)
-final class AirgapBlockingTests {
-
-    private let capture = ViolationCapture()
-
-    init() {
-        resetAirgapState(capture: capture)
-    }
-
-    // MARK: - Blocking requests
-
-    @Test("URLSession.shared data task is blocked") func uRLSessionSharedDataTaskIsBlocked() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://httpbin.org/get")!
-        do {
-            _ = try await URLSession.shared.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
+        init() {
+            resetAirgapState(capture: capture)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        // MARK: - Blocking requests
 
-    @Test("URLSession with default config is blocked") func uRLSessionWithDefaultConfigIsBlocked() async {
-        Airgap.activate()
+        @Test("URLSession.shared data task is blocked") func uRLSessionSharedDataTaskIsBlocked() async throws {
+            Airgap.activate()
 
-        let config = URLSessionConfiguration.default
-        let session = URLSession(configuration: config)
-        let url = URL(string: "https://httpbin.org/get")!
+            let url = try #require(URL(string: "https://httpbin.org/get"))
+            do {
+                _ = try await URLSession.shared.data(from: url)
+                Issue.record("Expected an error to be thrown")
+            } catch {
+                // Expected
+            }
 
-        do {
-            _ = try await session.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
+            #expect(Airgap.violations.count == 1)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        @Test("URLSession with default config is blocked") func uRLSessionWithDefaultConfigIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("URLSession with ephemeral config is blocked") func uRLSessionWithEphemeralConfigIsBlocked() async {
-        Airgap.activate()
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config)
+            let url = try #require(URL(string: "https://httpbin.org/get"))
 
-        let config = URLSessionConfiguration.ephemeral
-        let session = URLSession(configuration: config)
-        let url = URL(string: "https://httpbin.org/get")!
+            do {
+                _ = try await session.data(from: url)
+                Issue.record("Expected an error to be thrown")
+            } catch {
+                // Expected
+            }
 
-        do {
-            _ = try await session.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
+            #expect(Airgap.violations.count == 1)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        @Test("URLSession with ephemeral config is blocked") func uRLSessionWithEphemeralConfigIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("HTTP scheme is blocked") func HTTPSchemeIsBlocked() async {
-        Airgap.activate()
+            let config = URLSessionConfiguration.ephemeral
+            let session = URLSession(configuration: config)
+            let url = try #require(URL(string: "https://httpbin.org/get"))
 
-        let url = URL(string: "http://httpbin.org/get")!
-        do {
-            _ = try await URLSession.shared.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
+            do {
+                _ = try await session.data(from: url)
+                Issue.record("Expected an error to be thrown")
+            } catch {
+                // Expected
+            }
+
+            #expect(Airgap.violations.count == 1)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        @Test("HTTP scheme is blocked") func HTTPSchemeIsBlocked() async throws {
+            Airgap.activate()
 
-    // MARK: - Non-HTTP schemes
+            let url = try #require(URL(string: "http://httpbin.org/get"))
+            do {
+                _ = try await URLSession.shared.data(from: url)
+                Issue.record("Expected an error to be thrown")
+            } catch {
+                // Expected
+            }
 
-    @Test("Local file URL is not blocked") func localFileURLIsNotBlocked() async {
-        Airgap.activate()
-
-        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("networkguard-test.txt")
-        try? "test".write(to: tempFile, atomically: true, encoding: .utf8)
-
-        _ = try? await URLSession.shared.data(from: tempFile)
-        #expect(capture.isEmpty)
-
-        try? FileManager.default.removeItem(at: tempFile)
-    }
-
-    // MARK: - Non-GET HTTP methods
-
-    @Test("POST method is blocked") func pOSTMethodIsBlocked() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/api/post")!)
-        request.httpMethod = "POST"
-        request.httpBody = Data(#"{"key":"value"}"#.utf8)
-
-        _ = try? await URLSession.shared.data(for: request)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("POST") ?? false)
-    }
-
-    @Test("PUT method is blocked") func pUTMethodIsBlocked() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/api/put")!)
-        request.httpMethod = "PUT"
-
-        _ = try? await URLSession.shared.data(for: request)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("PUT") ?? false)
-    }
-
-    @Test("DELETE method is blocked") func dELETEMethodIsBlocked() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/api/delete")!)
-        request.httpMethod = "DELETE"
-
-        _ = try? await URLSession.shared.data(for: request)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("DELETE") ?? false)
-    }
-
-    @Test("PATCH method is blocked") func pATCHMethodIsBlocked() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/api/patch")!)
-        request.httpMethod = "PATCH"
-
-        _ = try? await URLSession.shared.data(for: request)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("PATCH") ?? false)
-    }
-
-    @Test("HEAD method is blocked") func hEADMethodIsBlocked() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/api/head")!)
-        request.httpMethod = "HEAD"
-
-        _ = try? await URLSession.shared.data(for: request)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("HEAD") ?? false)
-    }
-
-    // MARK: - Upload and download tasks
-
-    @Test("Upload task is blocked") func uploadTaskIsBlocked() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/upload")!)
-        request.httpMethod = "POST"
-        let data = Data("file content".utf8)
-
-        do {
-            _ = try await URLSession.shared.upload(for: request, from: data)
-            Issue.record("Upload should have thrown an error")
-        } catch {
-            // Expected
+            #expect(Airgap.violations.count == 1)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        // MARK: - Non-HTTP schemes
 
-    @Test("Download task is blocked") func downloadTaskIsBlocked() async {
-        Airgap.activate()
+        @Test("Local file URL is not blocked") func localFileURLIsNotBlocked() async {
+            Airgap.activate()
 
-        let url = URL(string: "https://example.com/file.zip")!
+            let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("networkguard-test.txt")
+            try? "test".write(to: tempFile, atomically: true, encoding: .utf8)
 
-        do {
-            _ = try await URLSession.shared.download(from: url)
-            Issue.record("Download should have thrown an error")
-        } catch {
-            // Expected
+            _ = try? await URLSession.shared.data(from: tempFile)
+            #expect(capture.isEmpty)
+
+            try? FileManager.default.removeItem(at: tempFile)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        // MARK: - Non-GET HTTP methods
 
-    // MARK: - URL edge cases
+        @Test("POST method is blocked") func pOSTMethodIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("URL with query string is blocked") func URLWithQueryStringIsBlocked() async {
-        Airgap.activate()
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/post")))
+            request.httpMethod = "POST"
+            request.httpBody = Data(#"{"key":"value"}"#.utf8)
 
-        let url = URL(string: "https://example.com/api?param=value&other=test")!
-        do {
-            _ = try await URLSession.shared.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
+            _ = try? await URLSession.shared.data(for: request)
+            await drainMainQueue()
+
+            #expect(capture.count == 1)
+            #expect(capture.messages.first?.contains("POST") ?? false)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        @Test("PUT method is blocked") func pUTMethodIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("URL with fragment is blocked") func URLWithFragmentIsBlocked() {
-        Airgap.activate()
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/put")))
+            request.httpMethod = "PUT"
 
-        let url = URL(string: "https://example.com/api#section")!
-        let request = URLRequest(url: url)
+            _ = try? await URLSession.shared.data(for: request)
+            await drainMainQueue()
 
-        #expect(AirgapURLProtocol.canInit(with: request))
-    }
-
-    @Test("URL with port is blocked") func URLWithPortIsBlocked() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com:8443/api")!
-        do {
-            _ = try await URLSession.shared.data(from: url)
-            Issue.record("Expected an error to be thrown")
-        } catch {
-            // Expected
+            #expect(capture.count == 1)
+            #expect(capture.messages.first?.contains("PUT") ?? false)
         }
 
-        #expect(Airgap.violations.count == 1)
-    }
+        @Test("DELETE method is blocked") func dELETEMethodIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("URL with basic auth is blocked") func URLWithBasicAuthIsBlocked() {
-        Airgap.activate()
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/delete")))
+            request.httpMethod = "DELETE"
 
-        let url = URL(string: "https://user:password@example.com/api")!
-        let request = URLRequest(url: url)
+            _ = try? await URLSession.shared.data(for: request)
+            await drainMainQueue()
 
-        #expect(AirgapURLProtocol.canInit(with: request))
-    }
-
-    // MARK: - data: scheme pass-through
-
-    @Test("data URL is not intercepted") func dataURLIsNotIntercepted() {
-        Airgap.activate()
-
-        let url = URL(string: "data:text/plain;base64,SGVsbG8=")!
-        let request = URLRequest(url: url)
-
-        #expect(!AirgapURLProtocol.canInit(with: request),
-                "data: URLs should not be intercepted")
-    }
-
-    // MARK: - Custom URLProtocol coexistence
-
-    @Test("Custom URLProtocol coexists with Airgap") func customURLProtocolCoexistsWithAirgap() {
-        URLProtocol.registerClass(MockSchemeProtocol.self)
-        defer { URLProtocol.unregisterClass(MockSchemeProtocol.self) }
-
-        Airgap.activate()
-
-        let mockURL = URL(string: "mock://test/resource")!
-        let mockRequest = URLRequest(url: mockURL)
-        #expect(!AirgapURLProtocol.canInit(with: mockRequest),
-                "Airgap should not intercept mock:// scheme")
-        #expect(MockSchemeProtocol.canInit(with: mockRequest),
-                "MockSchemeProtocol should handle mock:// scheme")
-
-        let httpsURL = URL(string: "https://example.com/api/coexistence")!
-        let httpsRequest = URLRequest(url: httpsURL)
-        #expect(AirgapURLProtocol.canInit(with: httpsRequest),
-                "Airgap should still intercept https:// requests")
-    }
-
-    // MARK: - Combine dataTaskPublisher
-
-    @Test("Combine dataTaskPublisher is intercepted") func combineDataTaskPublisherIsIntercepted() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/combine")!
-
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            var cancellable: AnyCancellable?
-            cancellable = URLSession.shared.dataTaskPublisher(for: url)
-                .sink(receiveCompletion: { _ in
-                    _ = cancellable  // prevent unused warning
-                    continuation.resume()
-                }, receiveValue: { _ in })
+            #expect(capture.count == 1)
+            #expect(capture.messages.first?.contains("DELETE") ?? false)
         }
 
-        #expect(Airgap.violations.count >= 1, "Combine dataTaskPublisher should be intercepted")
-    }
+        @Test("PATCH method is blocked") func pATCHMethodIsBlocked() async throws {
+            Airgap.activate()
 
-    // MARK: - Async upload and download
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/patch")))
+            request.httpMethod = "PATCH"
 
-    @Test("Async upload is intercepted") func asyncUploadIsIntercepted() async {
-        Airgap.activate()
+            _ = try? await URLSession.shared.data(for: request)
+            await drainMainQueue()
 
-        var request = URLRequest(url: URL(string: "https://example.com/api/async-upload")!)
-        request.httpMethod = "POST"
-        let body = Data("upload data".utf8)
-
-        do {
-            _ = try await URLSession.shared.upload(for: request, from: body)
-            Issue.record("Upload should have thrown an error")
-        } catch {
-            // Expected
+            #expect(capture.count == 1)
+            #expect(capture.messages.first?.contains("PATCH") ?? false)
         }
 
-        #expect(Airgap.violations.count == 1, "Async upload should be intercepted")
-    }
+        @Test("HEAD method is blocked") func hEADMethodIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("Async download is intercepted") func asyncDownloadIsIntercepted() async {
-        Airgap.activate()
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/head")))
+            request.httpMethod = "HEAD"
 
-        let url = URL(string: "https://example.com/api/async-download")!
+            _ = try? await URLSession.shared.data(for: request)
+            await drainMainQueue()
 
-        do {
-            _ = try await URLSession.shared.download(from: url)
-            Issue.record("Download should have thrown an error")
-        } catch {
-            // Expected
+            #expect(capture.count == 1)
+            #expect(capture.messages.first?.contains("HEAD") ?? false)
         }
 
-        #expect(Airgap.violations.count == 1, "Async download should be intercepted")
-    }
+        // MARK: - Upload and download tasks
 
-    // MARK: - KMP / Ktor Darwin Engine Pattern
+        @Test("Upload task is blocked") func uploadTaskIsBlocked() async throws {
+            Airgap.activate()
 
-    /// Simulates what Ktor's Darwin engine does: creates a URLSession from
-    /// URLSessionConfiguration.default after Airgap is active. The swizzled
-    /// config getter should inject AirgapURLProtocol, so the request is caught.
-    @Test("Ktor Darwin engine pattern is intercepted") func ktorDarwinEnginePatternIsIntercepted() async {
-        Airgap.activate()
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/upload")))
+            request.httpMethod = "POST"
+            let data = Data("file content".utf8)
 
-        let config = URLSessionConfiguration.default
-        let session = URLSession(configuration: config)
-        let url = URL(string: "https://api.example.com/kmp/endpoint")!
+            do {
+                _ = try await URLSession.shared.upload(for: request, from: data)
+                Issue.record("Upload should have thrown an error")
+            } catch {
+                // Expected
+            }
 
-        do {
-            _ = try await session.data(from: url)
-            Issue.record("Request should be blocked by Airgap")
-        } catch {
-            // Expected
+            #expect(Airgap.violations.count == 1)
         }
 
-        #expect(Airgap.violations.count == 1, "Violation should be captured for Ktor-style session")
-    }
+        @Test("Download task is blocked") func downloadTaskIsBlocked() async throws {
+            Airgap.activate()
 
-    /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
-    /// the configuration was obtained before activate() — closing the timing gap for
-    /// KMP/Ktor code that eagerly creates its URLSession during module load.
-    @Test("Session from pre activation config is intercepted via init swizzle")
-    func sessionFromPreActivationConfigIsInterceptedViaInitSwizzle() async {
-        // Grab config BEFORE activation — simulates Ktor initializing early.
-        let preActivationConfig = URLSessionConfiguration.default
+            let url = try #require(URL(string: "https://example.com/file.zip"))
 
-        Airgap.activate()
+            do {
+                _ = try await URLSession.shared.download(from: url)
+                Issue.record("Download should have thrown an error")
+            } catch {
+                // Expected
+            }
 
-        let session = URLSession(configuration: preActivationConfig)
-        let url = URL(string: "https://api.example.com/kmp/early-init")!
-
-        do {
-            _ = try await session.data(from: url)
-            Issue.record("Request should be blocked by Airgap")
-        } catch {
-            // Expected
+            #expect(Airgap.violations.count == 1)
         }
 
-        #expect(Airgap.violations.count == 1, "Init swizzle should catch requests from pre-activation configs")
-    }
+        // MARK: - URL edge cases
 
-    /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol into the
-    /// config passed to the initializer, even for non-standard configs like background.
-    @Test("Init swizzle injects protocol into config before session creation") func initSwizzleInjectsProtocolIntoConfigBeforeSessionCreation() {
-        Airgap.activate()
+        @Test("URL with query string is blocked") func URLWithQueryStringIsBlocked() async throws {
+            Airgap.activate()
 
-        let config = URLSessionConfiguration.background(withIdentifier: "com.airgap.test.\(UUID().uuidString)")
-        #expect(
-            !(config.protocolClasses ?? []).contains(where: { $0 == AirgapURLProtocol.self }),
-            "Background config should NOT have AirgapURLProtocol before session creation"
-        )
+            let url = try #require(URL(string: "https://example.com/api?param=value&other=test"))
+            do {
+                _ = try await URLSession.shared.data(from: url)
+                Issue.record("Expected an error to be thrown")
+            } catch {
+                // Expected
+            }
 
-        _ = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+            #expect(Airgap.violations.count == 1)
+        }
 
-        #expect(
-            (config.protocolClasses ?? []).contains(where: { $0 == AirgapURLProtocol.self }),
-            "Init swizzle should have injected AirgapURLProtocol into the config"
-        )
-    }
+        @Test("URL with fragment is blocked") func URLWithFragmentIsBlocked() throws {
+            Airgap.activate()
 
-    // MARK: - Passthrough protocols
+            let url = try #require(URL(string: "https://example.com/api#section"))
+            let request = URLRequest(url: url)
 
-    @Test("Passthrough protocol yields to mock for matching requests") func passthroughProtocolYieldsToMock() {
-        Airgap.passthroughProtocols = [MockHTTPProtocol.self]
-        Airgap.activate()
+            #expect(AirgapURLProtocol.canInit(with: request))
+        }
 
-        let mockedURL = URL(string: "https://mocked.example.com/api/resource")!
-        let mockedRequest = URLRequest(url: mockedURL)
-        #expect(!AirgapURLProtocol.canInit(with: mockedRequest),
-                "Airgap should yield to passthrough protocol for matching requests")
-        #expect(MockHTTPProtocol.canInit(with: mockedRequest),
-                "MockHTTPProtocol should handle the request")
-    }
+        @Test("URL with port is blocked") func URLWithPortIsBlocked() async throws {
+            Airgap.activate()
 
-    @Test("Non-matching passthrough protocol still blocks") func nonMatchingPassthroughStillBlocks() {
-        Airgap.passthroughProtocols = [MockHTTPProtocol.self]
-        Airgap.activate()
+            let url = try #require(URL(string: "https://example.com:8443/api"))
+            do {
+                _ = try await URLSession.shared.data(from: url)
+                Issue.record("Expected an error to be thrown")
+            } catch {
+                // Expected
+            }
 
-        let unmockedURL = URL(string: "https://unmocked.example.com/api/resource")!
-        let unmockedRequest = URLRequest(url: unmockedURL)
-        #expect(AirgapURLProtocol.canInit(with: unmockedRequest),
-                "Airgap should still block requests the passthrough protocol doesn't handle")
-    }
+            #expect(Airgap.violations.count == 1)
+        }
 
-    @Test("Empty passthrough list blocks normally") func emptyPassthroughListBlocksNormally() {
-        Airgap.passthroughProtocols = []
-        Airgap.activate()
+        @Test("URL with basic auth is blocked") func URLWithBasicAuthIsBlocked() throws {
+            Airgap.activate()
 
-        let url = URL(string: "https://example.com/api/resource")!
-        let request = URLRequest(url: url)
-        #expect(AirgapURLProtocol.canInit(with: request),
-                "Airgap should block requests when no passthrough protocols are set")
-    }
+            let url = try #require(URL(string: "https://user:password@example.com/api"))
+            let request = URLRequest(url: url)
 
-    // MARK: - Concurrent requests
+            #expect(AirgapURLProtocol.canInit(with: request))
+        }
 
-    @Test("Concurrent blocked requests") func concurrentBlockedRequests() async {
-        Airgap.activate()
+        // MARK: - data: scheme pass-through
 
-        await withTaskGroup(of: Void.self) { group in
-            for i in 0..<5 {
-                let url = URL(string: "https://example.com/api/concurrent/\(i)")!
-                group.addTask {
-                    do {
-                        _ = try await URLSession.shared.data(from: url)
-                        Issue.record("Expected an error")
-                    } catch {
-                        // Expected
+        @Test("data URL is not intercepted") func dataURLIsNotIntercepted() throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "data:text/plain;base64,SGVsbG8="))
+            let request = URLRequest(url: url)
+
+            #expect(!AirgapURLProtocol.canInit(with: request),
+                    "data: URLs should not be intercepted")
+        }
+
+        // MARK: - Custom URLProtocol coexistence
+
+        @Test("Custom URLProtocol coexists with Airgap") func customURLProtocolCoexistsWithAirgap() throws {
+            URLProtocol.registerClass(MockSchemeProtocol.self)
+            defer { URLProtocol.unregisterClass(MockSchemeProtocol.self) }
+
+            Airgap.activate()
+
+            let mockURL = try #require(URL(string: "mock://test/resource"))
+            let mockRequest = URLRequest(url: mockURL)
+            #expect(!AirgapURLProtocol.canInit(with: mockRequest),
+                    "Airgap should not intercept mock:// scheme")
+            #expect(MockSchemeProtocol.canInit(with: mockRequest),
+                    "MockSchemeProtocol should handle mock:// scheme")
+
+            let httpsURL = try #require(URL(string: "https://example.com/api/coexistence"))
+            let httpsRequest = URLRequest(url: httpsURL)
+            #expect(AirgapURLProtocol.canInit(with: httpsRequest),
+                    "Airgap should still intercept https:// requests")
+        }
+
+        // MARK: - Combine dataTaskPublisher
+
+        @Test("Combine dataTaskPublisher is intercepted") func combineDataTaskPublisherIsIntercepted() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/combine"))
+
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                var cancellable: AnyCancellable?
+                cancellable = URLSession.shared.dataTaskPublisher(for: url)
+                    .sink(receiveCompletion: { _ in
+                        _ = cancellable // prevent unused warning
+                        continuation.resume()
+                    }, receiveValue: { _ in })
+            }
+
+            #expect(Airgap.violations.count >= 1, "Combine dataTaskPublisher should be intercepted")
+        }
+
+        // MARK: - Async upload and download
+
+        @Test("Async upload is intercepted") func asyncUploadIsIntercepted() async throws {
+            Airgap.activate()
+
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/async-upload")))
+            request.httpMethod = "POST"
+            let body = Data("upload data".utf8)
+
+            do {
+                _ = try await URLSession.shared.upload(for: request, from: body)
+                Issue.record("Upload should have thrown an error")
+            } catch {
+                // Expected
+            }
+
+            #expect(Airgap.violations.count == 1, "Async upload should be intercepted")
+        }
+
+        @Test("Async download is intercepted") func asyncDownloadIsIntercepted() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/async-download"))
+
+            do {
+                _ = try await URLSession.shared.download(from: url)
+                Issue.record("Download should have thrown an error")
+            } catch {
+                // Expected
+            }
+
+            #expect(Airgap.violations.count == 1, "Async download should be intercepted")
+        }
+
+        // MARK: - KMP / Ktor Darwin Engine Pattern
+
+        /// Simulates what Ktor's Darwin engine does: creates a URLSession from
+        /// URLSessionConfiguration.default after Airgap is active. The swizzled
+        /// config getter should inject AirgapURLProtocol, so the request is caught.
+        @Test("Ktor Darwin engine pattern is intercepted") func ktorDarwinEnginePatternIsIntercepted() async throws {
+            Airgap.activate()
+
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config)
+            let url = try #require(URL(string: "https://api.example.com/kmp/endpoint"))
+
+            do {
+                _ = try await session.data(from: url)
+                Issue.record("Request should be blocked by Airgap")
+            } catch {
+                // Expected
+            }
+
+            #expect(Airgap.violations.count == 1, "Violation should be captured for Ktor-style session")
+        }
+
+        /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol even when
+        /// the configuration was obtained before activate() — closing the timing gap for
+        /// KMP/Ktor code that eagerly creates its URLSession during module load.
+        @Test("Session from pre activation config is intercepted via init swizzle")
+        func sessionFromPreActivationConfigIsInterceptedViaInitSwizzle() async throws {
+            // Grab config BEFORE activation — simulates Ktor initializing early.
+            let preActivationConfig = URLSessionConfiguration.default
+
+            Airgap.activate()
+
+            let session = URLSession(configuration: preActivationConfig)
+            let url = try #require(URL(string: "https://api.example.com/kmp/early-init"))
+
+            do {
+                _ = try await session.data(from: url)
+                Issue.record("Request should be blocked by Airgap")
+            } catch {
+                // Expected
+            }
+
+            #expect(Airgap.violations.count == 1, "Init swizzle should catch requests from pre-activation configs")
+        }
+
+        /// Verifies that the URLSession.init swizzle injects AirgapURLProtocol into the
+        /// config passed to the initializer, even for non-standard configs like background.
+        @Test("Init swizzle injects protocol into config before session creation") func initSwizzleInjectsProtocolIntoConfigBeforeSessionCreation() {
+            Airgap.activate()
+
+            let config = URLSessionConfiguration.background(withIdentifier: "com.airgap.test.\(UUID().uuidString)")
+            #expect(
+                !(config.protocolClasses ?? []).contains(where: { $0 == AirgapURLProtocol.self }),
+                "Background config should NOT have AirgapURLProtocol before session creation")
+
+            _ = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+
+            #expect(
+                (config.protocolClasses ?? []).contains(where: { $0 == AirgapURLProtocol.self }),
+                "Init swizzle should have injected AirgapURLProtocol into the config")
+        }
+
+        // MARK: - Passthrough protocols
+
+        @Test("Passthrough protocol yields to mock for matching requests") func passthroughProtocolYieldsToMock() throws {
+            Airgap.passthroughProtocols = [MockHTTPProtocol.self]
+            Airgap.activate()
+
+            let mockedURL = try #require(URL(string: "https://mocked.example.com/api/resource"))
+            let mockedRequest = URLRequest(url: mockedURL)
+            #expect(!AirgapURLProtocol.canInit(with: mockedRequest),
+                    "Airgap should yield to passthrough protocol for matching requests")
+            #expect(MockHTTPProtocol.canInit(with: mockedRequest),
+                    "MockHTTPProtocol should handle the request")
+        }
+
+        @Test("Non-matching passthrough protocol still blocks") func nonMatchingPassthroughStillBlocks() throws {
+            Airgap.passthroughProtocols = [MockHTTPProtocol.self]
+            Airgap.activate()
+
+            let unmockedURL = try #require(URL(string: "https://unmocked.example.com/api/resource"))
+            let unmockedRequest = URLRequest(url: unmockedURL)
+            #expect(AirgapURLProtocol.canInit(with: unmockedRequest),
+                    "Airgap should still block requests the passthrough protocol doesn't handle")
+        }
+
+        @Test("Empty passthrough list blocks normally") func emptyPassthroughListBlocksNormally() throws {
+            Airgap.passthroughProtocols = []
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/resource"))
+            let request = URLRequest(url: url)
+            #expect(AirgapURLProtocol.canInit(with: request),
+                    "Airgap should block requests when no passthrough protocols are set")
+        }
+
+        // MARK: - Concurrent requests
+
+        @Test("Concurrent blocked requests") func concurrentBlockedRequests() async {
+            Airgap.activate()
+
+            await withTaskGroup(of: Void.self) { group in
+                for i in 0 ..< 5 {
+                    let url = URL(string: "https://example.com/api/concurrent/\(i)")!
+                    group.addTask {
+                        do {
+                            _ = try await URLSession.shared.data(from: url)
+                            Issue.record("Expected an error")
+                        } catch {
+                            // Expected
+                        }
                     }
                 }
             }
+
+            #expect(Airgap.violations.count >= 5)
         }
-
-        #expect(Airgap.violations.count >= 5)
     }
-}
-
 } // extension AllAirgapUnitTests

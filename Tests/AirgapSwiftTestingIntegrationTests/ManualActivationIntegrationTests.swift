@@ -1,18 +1,16 @@
-import Testing
 @testable import Airgap
 import Foundation
+import Testing
 
 extension AllAirgapSwiftTestingTests {
-
     @Suite struct ManualActivationTests {
-
-        @Test("Shared session request is blocked") func sharedSessionRequestIsBlocked() {
+        @Test("Shared session request is blocked") func sharedSessionRequestIsBlocked() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
             defer { Airgap.deactivate() }
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let semaphore = DispatchSemaphore(value: 0)
             let errorCapture = ErrorCapture()
 
@@ -26,13 +24,13 @@ extension AllAirgapSwiftTestingTests {
             #expect(errorCapture.value != nil, "Blocked request should deliver an error")
         }
 
-        @Test("Custom session with default config is blocked") func customSessionWithDefaultConfigIsBlocked() {
+        @Test("Custom session with default config is blocked") func customSessionWithDefaultConfigIsBlocked() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
             defer { Airgap.deactivate() }
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let session = URLSession(configuration: .default)
             let semaphore = DispatchSemaphore(value: 0)
 
@@ -44,13 +42,13 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test("Custom session with ephemeral config is blocked") func customSessionWithEphemeralConfigIsBlocked() {
+        @Test("Custom session with ephemeral config is blocked") func customSessionWithEphemeralConfigIsBlocked() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
             defer { Airgap.deactivate() }
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let session = URLSession(configuration: .ephemeral)
             let semaphore = DispatchSemaphore(value: 0)
 
@@ -62,13 +60,13 @@ extension AllAirgapSwiftTestingTests {
             #expect(capture.count == 1)
         }
 
-        @Test("Violation message contains URL and guidance") func violationMessageContainsURLAndGuidance() {
+        @Test("Violation message contains URL and guidance") func violationMessageContainsURLAndGuidance() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
             defer { Airgap.deactivate() }
 
-            let url = URL(string: "https://example.com/api/test")!
+            let url = try #require(URL(string: "https://example.com/api/test"))
             let semaphore = DispatchSemaphore(value: 0)
 
             URLSession.shared.dataTask(with: url) { _, _, _ in
@@ -103,27 +101,27 @@ extension AllAirgapSwiftTestingTests {
             try? FileManager.default.removeItem(at: tempFile)
         }
 
-        @Test("allowNetworkAccess prevents blocking") func allowNetworkAccessPreventsBlocking() {
+        @Test("allowNetworkAccess prevents blocking") func allowNetworkAccessPreventsBlocking() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
             Airgap.allowNetworkAccess()
             defer { Airgap.deactivate() }
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)
             #expect(capture.isEmpty)
         }
 
-        @Test("Deactivated guard does not block") func deactivatedGuardDoesNotBlock() {
+        @Test("Deactivated guard does not block") func deactivatedGuardDoesNotBlock() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.activate()
             Airgap.deactivate()
 
-            let url = URL(string: "https://example.com/api")!
+            let url = try #require(URL(string: "https://example.com/api"))
             let request = URLRequest(url: url)
 
             #expect(AirgapURLProtocol.canInit(with: request) == false)

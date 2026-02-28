@@ -3,7 +3,6 @@ import XCTest
 
 /// Tests that `Airgap.configureFromEnvironment()` reads environment variables correctly.
 final class EnvironmentVariableTests: XCTestCase {
-
     override func tearDown() {
         // Clean up environment variables
         unsetenv("AIRGAP_MODE")

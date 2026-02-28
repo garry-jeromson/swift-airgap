@@ -1,5 +1,5 @@
-import XCTest
 import Airgap
+import XCTest
 
 // MARK: - Integration tests using the default XCTFail handler
 
@@ -7,7 +7,6 @@ import Airgap
 /// network violations produce actual XCTest failures, and that allowed/inactive
 /// scenarios pass cleanly.
 final class AirgapIntegrationTests: XCTestCase {
-
     override func tearDown() {
         Airgap.deactivate()
         super.tearDown()
@@ -15,13 +14,13 @@ final class AirgapIntegrationTests: XCTestCase {
 
     // MARK: - Tests that should fail (wrapped in XCTExpectFailure)
 
-    func testNetworkCallWithDefaultHandlerProducesXCTFailure() {
+    func testNetworkCallWithDefaultHandlerProducesXCTFailure() throws {
         Airgap.activate()
 
         XCTExpectFailure("Airgap should trigger XCTFail for blocked requests")
 
         let expectation = expectation(description: "Data task completes")
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
 
         URLSession.shared.dataTask(with: url) { _, _, _ in
             expectation.fulfill()
@@ -30,14 +29,14 @@ final class AirgapIntegrationTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
     }
 
-    func testCustomSessionDefaultConfigWithDefaultHandlerProducesXCTFailure() {
+    func testCustomSessionDefaultConfigWithDefaultHandlerProducesXCTFailure() throws {
         Airgap.activate()
 
         XCTExpectFailure("Airgap should trigger XCTFail for custom session with .default config")
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .default)
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
 
         session.dataTask(with: url) { _, _, _ in
             expectation.fulfill()
@@ -46,14 +45,14 @@ final class AirgapIntegrationTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
     }
 
-    func testCustomSessionEphemeralConfigWithDefaultHandlerProducesXCTFailure() {
+    func testCustomSessionEphemeralConfigWithDefaultHandlerProducesXCTFailure() throws {
         Airgap.activate()
 
         XCTExpectFailure("Airgap should trigger XCTFail for custom session with .ephemeral config")
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .ephemeral)
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
 
         session.dataTask(with: url) { _, _, _ in
             expectation.fulfill()
@@ -64,24 +63,24 @@ final class AirgapIntegrationTests: XCTestCase {
 
     // MARK: - Tests that should pass (no expected failure)
 
-    func testAllowNetworkAccessPreventsXCTFailure() {
+    func testAllowNetworkAccessPreventsXCTFailure() throws {
         Airgap.activate()
         Airgap.allowNetworkAccess()
 
         // No XCTExpectFailure — this should genuinely pass without any failure.
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
         let request = URLRequest(url: url)
 
         // canInit returning false proves the request would not be intercepted.
         XCTAssertFalse(AirgapURLProtocol.canInit(with: request))
     }
 
-    func testDeactivatedGuardDoesNotProduceXCTFailure() {
+    func testDeactivatedGuardDoesNotProduceXCTFailure() throws {
         Airgap.activate()
         Airgap.deactivate()
 
         // No XCTExpectFailure — this should genuinely pass.
-        let url = URL(string: "https://example.com/api")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api"))
         let request = URLRequest(url: url)
 
         XCTAssertFalse(AirgapURLProtocol.canInit(with: request))

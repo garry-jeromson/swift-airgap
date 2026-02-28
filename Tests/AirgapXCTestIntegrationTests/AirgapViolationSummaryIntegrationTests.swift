@@ -1,10 +1,9 @@
-import XCTest
 import Airgap
+import XCTest
 
 // MARK: - Violation summary integration tests
 
 final class AirgapViolationSummaryIntegrationTests: XCTestCase {
-
     override func setUp() {
         super.setUp()
         Airgap.clearViolations()
@@ -17,14 +16,14 @@ final class AirgapViolationSummaryIntegrationTests: XCTestCase {
         super.tearDown()
     }
 
-    func testViolationSummaryWithDefaultHandler() {
+    func testViolationSummaryWithDefaultHandler() throws {
         Airgap.clearViolations()
         Airgap.activate()
 
         XCTExpectFailure("Violation should trigger XCTFail")
 
         let expectation = expectation(description: "Data task completes")
-        let url = URL(string: "https://example.com/api/summary")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/summary"))
 
         URLSession.shared.dataTask(with: url) { _, _, _ in
             expectation.fulfill()

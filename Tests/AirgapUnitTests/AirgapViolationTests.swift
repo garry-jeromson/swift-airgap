@@ -1,228 +1,224 @@
+@testable import Airgap
 import Foundation
 import Testing
-@testable import Airgap
 
 extension AllAirgapUnitTests {
+    @Suite(.serialized)
+    final class AirgapViolationTests {
+        private let capture = ViolationCapture()
 
-@Suite(.serialized)
-final class AirgapViolationTests {
-
-    private let capture = ViolationCapture()
-
-    init() {
-        resetAirgapState(capture: capture)
-    }
-
-    // MARK: - Violation message
-
-    @Test("Violation message contains URL and guidance") func violationMessageContainsURLAndGuidance() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/test")!
-        _ = try? await URLSession.shared.data(from: url)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-
-        let message = capture.messages.first ?? ""
-        #expect(message.contains("https://example.com/api/test"), "Message should contain the URL")
-        #expect(message.contains("GET"), "Message should contain the HTTP method")
-        #expect(message.contains("mock") || message.contains("stub"), "Message should contain guidance")
-    }
-
-    // MARK: - Violation message includes request details
-
-    @Test("Violation message includes content type") func violationMessageIncludesContentType() async {
-        Airgap.activate()
-
-        var request = URLRequest(url: URL(string: "https://example.com/api/content-type")!)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        _ = try? await URLSession.shared.data(for: request)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        #expect(capture.messages.first?.contains("application/json") ?? false, "Violation should include Content-Type header")
-    }
-
-    @Test("Violation message omits content type when absent") func violationMessageOmitsContentTypeWhenAbsent() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/no-content-type")!
-        _ = try? await URLSession.shared.data(from: url)
-        await drainMainQueue()
-
-        #expect(capture.count == 1)
-        let message = capture.messages.first ?? ""
-        #expect(!message.contains("Content-Type"), "GET without Content-Type should not include it")
-    }
-
-    // MARK: - Error message hints
-
-    @Test("Violation message contains hint") func violationMessageContainsHint() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/hint-test")!
-        _ = try? await URLSession.shared.data(from: url)
-
-        let message = capture.messages.first ?? ""
-        #expect(message.contains("Hint:"), "Message should contain 'Hint:'")
-        #expect(message.contains("allowNetworkAccess()"), "Hint should mention allowNetworkAccess()")
-        #expect(message.contains("allowedHosts"), "Hint should mention allowedHosts")
-        #expect(message.contains(".warn"), "Hint should mention .warn mode")
-        #expect(message.contains("mock"), "Original message text should be preserved")
-    }
-
-    // MARK: - Violation collection
-
-    @Test("Violations collected when report path set") func violationsCollectedWhenReportPathSet() async {
-        let tempPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ng-test-\(UUID().uuidString).txt").path
-        Airgap.reportPath = tempPath
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/collect-test")!
-        _ = try? await URLSession.shared.data(from: url)
-
-        #expect(Airgap.violations.count == 1)
-        #expect(Airgap.violations[0].url == "https://example.com/api/collect-test")
-        #expect(Airgap.violations[0].httpMethod == "GET")
-
-        try? FileManager.default.removeItem(atPath: tempPath)
-    }
-
-    @Test("Violations collected even when report path nil") func violationsCollectedEvenWhenReportPathNil() async {
-        Airgap.reportPath = nil
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/collect-without-path")!
-        _ = try? await URLSession.shared.data(from: url)
-
-        #expect(Airgap.violations.count == 1, "Violations should be collected regardless of reportPath")
-        #expect(Airgap.violations[0].url == "https://example.com/api/collect-without-path")
-    }
-
-    // MARK: - Clear violations
-
-    @Test("Clear violations resets collection") func clearViolationsResetsCollection() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/clear-test")!
-        _ = try? await URLSession.shared.data(from: url)
-
-        #expect(!Airgap.violations.isEmpty)
-
-        Airgap.clearViolations()
-        #expect(Airgap.violations.isEmpty)
-    }
-
-    // MARK: - Deactivate does not clear violations
-
-    @Test("Deactivate does not clear violations") func deactivateDoesNotClearViolations() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/deactivate-test")!
-        _ = try? await URLSession.shared.data(from: url)
-
-        Airgap.deactivate()
-        #expect(Airgap.violations.count == 1, "deactivate should not clear violations; call clearViolations() explicitly")
-    }
-
-    // MARK: - Violation testName attribution
-
-    @Test("Violation contains correct test name") func violationContainsCorrectTestName() async {
-        AirgapURLProtocol.currentTestName = "MyTests/testSomething"
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/attribution")!
-        _ = try? await URLSession.shared.data(from: url)
-
-        #expect(Airgap.violations.count == 1)
-        #expect(Airgap.violations[0].testName == "MyTests/testSomething", "Violation should be attributed to the correct test name")
-    }
-
-    // MARK: - Call stack caller attribution
-
-    /// Note: This test is inherently brittle. It matches against mangled Swift symbol
-    /// names in the call stack, which are compiler-version-dependent. If the test module
-    /// or type is renamed, or the compiler's name mangling changes, update the patterns below.
-    @Test("Violation call stack contains caller frame") func violationCallStackContainsCallerFrame() async {
-        Airgap.activate()
-
-        let url = URL(string: "https://example.com/api/caller-stack")!
-
-        // Use callback pattern so .resume() is called from test code
-        // (async/await resumes internally, so the test frame isn't in the stack)
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            URLSession.shared.dataTask(with: url) { _, _, _ in
-                continuation.resume()
-            }.resume()
+        init() {
+            resetAirgapState(capture: capture)
         }
 
-        #expect(Airgap.violations.count >= 1)
-        let callStack = Airgap.violations[0].callStack
-        let testModulePatterns = ["AirgapTests", "AirgapUnitTests", "AirgapSwiftTestingTests", "AirgapViolationTests"]
-        let containsTestFrame = callStack.contains { frame in
-            testModulePatterns.contains { frame.contains($0) }
-        }
-        #expect(containsTestFrame, "Call stack should contain the caller's frame. Got:\n\(callStack.prefix(10).joined(separator: "\n"))")
-    }
+        // MARK: - Violation message
 
-    // MARK: - Same URL multiple requests
+        @Test("Violation message contains URL and guidance") func violationMessageContainsURLAndGuidance() async throws {
+            Airgap.activate()
 
-    @Test("Multiple requests to same URL both recorded") func multipleRequestsToSameURLBothRecorded() async {
-        Airgap.activate()
+            let url = try #require(URL(string: "https://example.com/api/test"))
+            _ = try? await URLSession.shared.data(from: url)
+            await drainMainQueue()
 
-        let url = URL(string: "https://example.com/api/same-url")!
+            #expect(capture.count == 1)
 
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { _ = try? await URLSession.shared.data(from: url) }
-            group.addTask { _ = try? await URLSession.shared.data(from: url) }
+            let message = capture.messages.first ?? ""
+            #expect(message.contains("https://example.com/api/test"), "Message should contain the URL")
+            #expect(message.contains("GET"), "Message should contain the HTTP method")
+            #expect(message.contains("mock") || message.contains("stub"), "Message should contain guidance")
         }
 
-        #expect(Airgap.violations.count == 2, "Both requests to the same URL should be recorded as violations")
-    }
+        // MARK: - Violation message includes request details
 
-    // MARK: - Concurrent violation collection
+        @Test("Violation message includes content type") func violationMessageIncludesContentType() async throws {
+            Airgap.activate()
 
-    @Test("Concurrent violations are all collected in violations array") func concurrentViolationsAreAllCollectedInViolationsArray() async {
-        Airgap.activate()
+            var request = try URLRequest(url: #require(URL(string: "https://example.com/api/content-type")))
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        await withTaskGroup(of: Void.self) { group in
-            for i in 0..<5 {
-                let url = URL(string: "https://example.com/api/concurrent-violations/\(i)")!
-                group.addTask {
-                    _ = try? await URLSession.shared.data(from: url)
+            _ = try? await URLSession.shared.data(for: request)
+            await drainMainQueue()
+
+            #expect(capture.count == 1)
+            #expect(capture.messages.first?.contains("application/json") ?? false, "Violation should include Content-Type header")
+        }
+
+        @Test("Violation message omits content type when absent") func violationMessageOmitsContentTypeWhenAbsent() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/no-content-type"))
+            _ = try? await URLSession.shared.data(from: url)
+            await drainMainQueue()
+
+            #expect(capture.count == 1)
+            let message = capture.messages.first ?? ""
+            #expect(!message.contains("Content-Type"), "GET without Content-Type should not include it")
+        }
+
+        // MARK: - Error message hints
+
+        @Test("Violation message contains hint") func violationMessageContainsHint() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/hint-test"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            let message = capture.messages.first ?? ""
+            #expect(message.contains("Hint:"), "Message should contain 'Hint:'")
+            #expect(message.contains("allowNetworkAccess()"), "Hint should mention allowNetworkAccess()")
+            #expect(message.contains("allowedHosts"), "Hint should mention allowedHosts")
+            #expect(message.contains(".warn"), "Hint should mention .warn mode")
+            #expect(message.contains("mock"), "Original message text should be preserved")
+        }
+
+        // MARK: - Violation collection
+
+        @Test("Violations collected when report path set") func violationsCollectedWhenReportPathSet() async throws {
+            let tempPath = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ng-test-\(UUID().uuidString).txt").path
+            Airgap.reportPath = tempPath
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/collect-test"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            #expect(Airgap.violations.count == 1)
+            #expect(Airgap.violations[0].url == "https://example.com/api/collect-test")
+            #expect(Airgap.violations[0].httpMethod == "GET")
+
+            try? FileManager.default.removeItem(atPath: tempPath)
+        }
+
+        @Test("Violations collected even when report path nil") func violationsCollectedEvenWhenReportPathNil() async throws {
+            Airgap.reportPath = nil
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/collect-without-path"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            #expect(Airgap.violations.count == 1, "Violations should be collected regardless of reportPath")
+            #expect(Airgap.violations[0].url == "https://example.com/api/collect-without-path")
+        }
+
+        // MARK: - Clear violations
+
+        @Test("Clear violations resets collection") func clearViolationsResetsCollection() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/clear-test"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            #expect(!Airgap.violations.isEmpty)
+
+            Airgap.clearViolations()
+            #expect(Airgap.violations.isEmpty)
+        }
+
+        // MARK: - Deactivate does not clear violations
+
+        @Test("Deactivate does not clear violations") func deactivateDoesNotClearViolations() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/deactivate-test"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            Airgap.deactivate()
+            #expect(Airgap.violations.count == 1, "deactivate should not clear violations; call clearViolations() explicitly")
+        }
+
+        // MARK: - Violation testName attribution
+
+        @Test("Violation contains correct test name") func violationContainsCorrectTestName() async throws {
+            AirgapURLProtocol.currentTestName = "MyTests/testSomething"
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/attribution"))
+            _ = try? await URLSession.shared.data(from: url)
+
+            #expect(Airgap.violations.count == 1)
+            #expect(Airgap.violations[0].testName == "MyTests/testSomething", "Violation should be attributed to the correct test name")
+        }
+
+        // MARK: - Call stack caller attribution
+
+        /// Note: This test is inherently brittle. It matches against mangled Swift symbol
+        /// names in the call stack, which are compiler-version-dependent. If the test module
+        /// or type is renamed, or the compiler's name mangling changes, update the patterns below.
+        @Test("Violation call stack contains caller frame") func violationCallStackContainsCallerFrame() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/caller-stack"))
+
+            // Use callback pattern so .resume() is called from test code
+            // (async/await resumes internally, so the test frame isn't in the stack)
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                URLSession.shared.dataTask(with: url) { _, _, _ in
+                    continuation.resume()
+                }.resume()
+            }
+
+            #expect(Airgap.violations.count >= 1)
+            let callStack = Airgap.violations[0].callStack
+            let testModulePatterns = ["AirgapTests", "AirgapUnitTests", "AirgapSwiftTestingTests", "AirgapViolationTests"]
+            let containsTestFrame = callStack.contains { frame in
+                testModulePatterns.contains { frame.contains($0) }
+            }
+            #expect(containsTestFrame, "Call stack should contain the caller's frame. Got:\n\(callStack.prefix(10).joined(separator: "\n"))")
+        }
+
+        // MARK: - Same URL multiple requests
+
+        @Test("Multiple requests to same URL both recorded") func multipleRequestsToSameURLBothRecorded() async throws {
+            Airgap.activate()
+
+            let url = try #require(URL(string: "https://example.com/api/same-url"))
+
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { _ = try? await URLSession.shared.data(from: url) }
+                group.addTask { _ = try? await URLSession.shared.data(from: url) }
+            }
+
+            #expect(Airgap.violations.count == 2, "Both requests to the same URL should be recorded as violations")
+        }
+
+        // MARK: - Concurrent violation collection
+
+        @Test("Concurrent violations are all collected in violations array") func concurrentViolationsAreAllCollectedInViolationsArray() async {
+            Airgap.activate()
+
+            await withTaskGroup(of: Void.self) { group in
+                for i in 0 ..< 5 {
+                    let url = URL(string: "https://example.com/api/concurrent-violations/\(i)")!
+                    group.addTask {
+                        _ = try? await URLSession.shared.data(from: url)
+                    }
                 }
             }
+
+            #expect(Airgap.violations.count == 5, "All concurrent violations should be collected in the violations array")
         }
 
-        #expect(Airgap.violations.count == 5, "All concurrent violations should be collected in the violations array")
+        // MARK: - Violation model tests
+
+        @Test("Violation Codable roundtrip") func violationCodableRoundtrip() throws {
+            let original = Violation(
+                testName: "TestClass/testMethod",
+                httpMethod: "POST",
+                url: "https://example.com/api",
+                callStack: ["frame1", "frame2"],
+                timestamp: Date(timeIntervalSince1970: 1_000_000))
+            let data = try JSONEncoder().encode(original)
+            let decoded = try JSONDecoder().decode(Violation.self, from: data)
+            #expect(original == decoded)
+        }
+
+        @Test("Violation timestamp is populated") func violationTimestampIsPopulated() {
+            let before = Date()
+            let violation = Violation(testName: "test", httpMethod: "GET", url: "https://example.com", callStack: [])
+            let after = Date()
+            #expect(violation.timestamp >= before)
+            #expect(violation.timestamp <= after)
+        }
     }
-
-    // MARK: - Violation model tests
-
-    @Test("Violation Codable roundtrip") func violationCodableRoundtrip() throws {
-        let original = Violation(
-            testName: "TestClass/testMethod",
-            httpMethod: "POST",
-            url: "https://example.com/api",
-            callStack: ["frame1", "frame2"],
-            timestamp: Date(timeIntervalSince1970: 1_000_000)
-        )
-        let data = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(Violation.self, from: data)
-        #expect(original == decoded)
-    }
-
-    @Test("Violation timestamp is populated") func violationTimestampIsPopulated() {
-        let before = Date()
-        let violation = Violation(testName: "test", httpMethod: "GET", url: "https://example.com", callStack: [])
-        let after = Date()
-        #expect(violation.timestamp >= before)
-        #expect(violation.timestamp <= after)
-    }
-}
-
 } // extension AllAirgapUnitTests

@@ -3,16 +3,15 @@ import XCTest
 
 /// Tests AirgapTestCase in default (.fail) mode.
 final class AirgapTestCaseTests: AirgapTestCase {
-
     @MainActor
-    func testRequestIsBlockedInFailMode() {
+    func testRequestIsBlockedInFailMode() throws {
         XCTAssertEqual(Airgap.mode, .fail)
 
         // The violation handler calls XCTFail — expect that failure.
         XCTExpectFailure("Airgap violation expected — verifying .fail mode fires XCTFail")
 
         let expectation = expectation(description: "blocked")
-        URLSession.shared.dataTask(with: URL(string: "https://example.com")!) { _, _, error in
+        try URLSession.shared.dataTask(with: XCTUnwrap(URL(string: "https://example.com"))) { _, _, error in
             XCTAssertNotNil(error)
             XCTAssertEqual((error as? NSError)?.code, NSURLErrorNotConnectedToInternet)
             expectation.fulfill()

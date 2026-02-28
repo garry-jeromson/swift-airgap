@@ -3,7 +3,6 @@ import XCTest
 
 /// Tests that AirgapTestCase writes a report file during tearDown when reportPath is set.
 final class ReportTests: AirgapTestCase {
-
     private var tempPath: String!
 
     override func configure() {
@@ -20,11 +19,11 @@ final class ReportTests: AirgapTestCase {
     }
 
     @MainActor
-    func testTearDownWritesReport() {
+    func testTearDownWritesReport() throws {
         XCTAssertEqual(Airgap.reportPath, tempPath)
 
         let expectation = expectation(description: "blocked")
-        URLSession.shared.dataTask(with: URL(string: "https://example.com/api/report")!) { _, _, error in
+        try URLSession.shared.dataTask(with: XCTUnwrap(URL(string: "https://example.com/api/report"))) { _, _, error in
             XCTAssertNotNil(error)
             expectation.fulfill()
         }.resume()

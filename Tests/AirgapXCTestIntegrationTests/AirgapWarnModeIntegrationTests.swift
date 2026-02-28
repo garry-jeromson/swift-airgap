@@ -1,5 +1,5 @@
-import XCTest
 import Airgap
+import XCTest
 
 // MARK: - Warn mode integration tests
 
@@ -7,7 +7,6 @@ import Airgap
 /// is needed because warn mode handles it internally via XCTExpectFailure.
 /// If warn mode is broken, these tests would fail with an unexpected XCTFail.
 final class AirgapWarnModeIntegrationTests: XCTestCase {
-
     private var originalMode: Airgap.Mode!
 
     override func setUp() {
@@ -23,13 +22,13 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
         super.tearDown()
     }
 
-    func testWarnModeDoesNotFailTestWithDefaultHandler() {
+    func testWarnModeDoesNotFailTestWithDefaultHandler() throws {
         // No XCTExpectFailure here — warn mode should handle it internally.
         // If this test fails, warn mode is broken.
         Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
-        let url = URL(string: "https://example.com/api/warn-integration")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/warn-integration"))
 
         URLSession.shared.dataTask(with: url) { _, _, error in
             XCTAssertNotNil(error, "Blocked request should still deliver an error")
@@ -39,10 +38,10 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
     }
 
-    func testWarnModeWithAsyncAwaitDoesNotFailTest() async {
+    func testWarnModeWithAsyncAwaitDoesNotFailTest() async throws {
         Airgap.activate()
 
-        let url = URL(string: "https://example.com/api/warn-async")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/warn-async"))
         do {
             _ = try await URLSession.shared.data(from: url)
         } catch {
@@ -51,12 +50,12 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
         // Test should pass — warn mode wraps failure in XCTExpectFailure
     }
 
-    func testWarnModeWithCustomSessionDoesNotFailTest() {
+    func testWarnModeWithCustomSessionDoesNotFailTest() throws {
         Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .default)
-        let url = URL(string: "https://example.com/api/warn-custom-session")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/warn-custom-session"))
 
         session.dataTask(with: url) { _, _, error in
             XCTAssertNotNil(error)
@@ -66,12 +65,12 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
     }
 
-    func testWarnModeWithEphemeralSessionDoesNotFailTest() {
+    func testWarnModeWithEphemeralSessionDoesNotFailTest() throws {
         Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
         let session = URLSession(configuration: .ephemeral)
-        let url = URL(string: "https://example.com/api/warn-ephemeral")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/warn-ephemeral"))
 
         session.dataTask(with: url) { _, _, error in
             XCTAssertNotNil(error)
@@ -81,7 +80,7 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
     }
 
-    func testWarnModeCollectsViolationsForReport() {
+    func testWarnModeCollectsViolationsForReport() throws {
         let tempPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("ng-warn-integration-\(UUID().uuidString).txt").path
         Airgap.reportPath = tempPath
@@ -89,7 +88,7 @@ final class AirgapWarnModeIntegrationTests: XCTestCase {
         Airgap.activate()
 
         let expectation = expectation(description: "Data task completes")
-        let url = URL(string: "https://example.com/api/warn-report")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/warn-report"))
 
         URLSession.shared.dataTask(with: url) { _, _, _ in
             expectation.fulfill()

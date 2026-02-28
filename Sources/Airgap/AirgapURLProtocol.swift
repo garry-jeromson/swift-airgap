@@ -6,15 +6,14 @@ import Foundation
 /// and injected into `URLSessionConfiguration.default` and `.ephemeral` via swizzling to catch
 /// custom session configurations.
 public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
-
     // MARK: - Thread-safe state
 
     private static let lock = NSLock()
 
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _isActive = false
+        private nonisolated(unsafe) static var _isActive = false
     #else
-    private static var _isActive = false
+        private static var _isActive = false
     #endif
     /// Whether the protocol is currently intercepting HTTP/HTTPS requests.
     /// Set by `Airgap.activate()` and `Airgap.deactivate()`.
@@ -24,9 +23,9 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _isAllowed = false
+        private nonisolated(unsafe) static var _isAllowed = false
     #else
-    private static var _isAllowed = false
+        private static var _isAllowed = false
     #endif
     /// When `true`, requests pass through without interception. Set by `Airgap.allowNetworkAccess()`
     /// and reset to `false` on each `Airgap.activate()` call or by `AirgapObserver.testCaseWillStart`.
@@ -36,9 +35,9 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _currentTestName = ""
+        private nonisolated(unsafe) static var _currentTestName = ""
     #else
-    private static var _currentTestName = ""
+        private static var _currentTestName = ""
     #endif
     /// The name of the currently running test, set by the observer or test case.
     public internal(set) static var currentTestName: String {
@@ -46,18 +45,18 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
         set { lock.withLock { _currentTestName = newValue } }
     }
 
-    /// Captured call stacks keyed by request URL string, for associating stack traces with violations.
+    // Captured call stacks keyed by request URL string, for associating stack traces with violations.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _capturedCallStacks: [String: [String]] = [:]
+        private nonisolated(unsafe) static var _capturedCallStacks: [String: [String]] = [:]
     #else
-    private static var _capturedCallStacks: [String: [String]] = [:]
+        private static var _capturedCallStacks: [String: [String]] = [:]
     #endif
 
-    /// Captured request metadata keyed by URL string, for including body/header info in violations.
+    // Captured request metadata keyed by URL string, for including body/header info in violations.
     #if compiler(>=6.0)
-    nonisolated(unsafe) private static var _capturedRequests: [String: URLRequest] = [:]
+        private nonisolated(unsafe) static var _capturedRequests: [String: URLRequest] = [:]
     #else
-    private static var _capturedRequests: [String: URLRequest] = [:]
+        private static var _capturedRequests: [String: URLRequest] = [:]
     #endif
 
     // MARK: - URLProtocol overrides
@@ -67,7 +66,8 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
 
         // Only intercept http and https schemes
         guard let scheme = request.url?.scheme?.lowercased(),
-              scheme == "http" || scheme == "https" else {
+              scheme == "http" || scheme == "https"
+        else {
             return false
         }
 
@@ -127,8 +127,7 @@ public final class AirgapURLProtocol: URLProtocol, @unchecked Sendable {
                 code: code,
                 userInfo: [
                     NSLocalizedDescriptionKey: "Airgap: Network access is not allowed during tests."
-                ]
-            )
+                ])
             self.client?.urlProtocol(self, didFailWithError: error)
         }
 

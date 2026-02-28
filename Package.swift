@@ -26,22 +26,17 @@ let package = Package(
     targets: [
         .target(
             name: "Airgap",
-            plugins: swiftLintPlugins
-        ),
+            plugins: swiftLintPlugins),
         .testTarget(
             name: "AirgapXCTestIntegrationTests",
             dependencies: ["Airgap"],
-            plugins: swiftLintPlugins
-        ),
+            plugins: swiftLintPlugins),
         .testTarget(
             name: "AirgapUnitTests",
             dependencies: ["Airgap"],
-            plugins: swiftLintPlugins
-        ),
+            plugins: swiftLintPlugins),
         .testTarget(
             name: "AirgapSwiftTestingIntegrationTests",
             dependencies: ["Airgap"],
-            plugins: swiftLintPlugins
-        ),
-    ]
-)
+            plugins: swiftLintPlugins),
+    ])

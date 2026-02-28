@@ -7,7 +7,6 @@ import XCTest
 /// To opt out a specific test or subclass that needs network access, override `setUp` and call
 /// `Airgap.allowNetworkAccess()` after `super.setUp()`.
 open class AirgapTestCase: XCTestCase {
-
     /// Sets up Airgap before each test.
     ///
     /// Call order: `configureFromEnvironment()` → `configure()` → `clearViolations()` → `activate()`.

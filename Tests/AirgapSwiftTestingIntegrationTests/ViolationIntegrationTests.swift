@@ -1,17 +1,15 @@
-import Testing
 @testable import Airgap
 import Foundation
+import Testing
 
 extension AllAirgapSwiftTestingTests {
-
     @Suite struct ViolationSummaryTests {
-
         @Test("Summary is nil with no violations") func summaryIsNilWithNoViolations() {
             Airgap.clearViolations()
             #expect(Airgap.violationSummary() == nil)
         }
 
-        @Test("Summary contains violation count") func summaryContainsViolationCount() {
+        @Test("Summary contains violation count") func summaryContainsViolationCount() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.clearViolations()
@@ -21,7 +19,7 @@ extension AllAirgapSwiftTestingTests {
                 Airgap.clearViolations()
             }
 
-            let url = URL(string: "https://example.com/api/summary")!
+            let url = try #require(URL(string: "https://example.com/api/summary"))
             let semaphore = DispatchSemaphore(value: 0)
 
             URLSession.shared.dataTask(with: url) { _, _, _ in
@@ -36,8 +34,7 @@ extension AllAirgapSwiftTestingTests {
     }
 
     @Suite struct ViolationCollectionTests {
-
-        @Test("Violations collected without report path") func violationsCollectedWithoutReportPath() {
+        @Test("Violations collected without report path") func violationsCollectedWithoutReportPath() throws {
             let capture = ViolationCapture()
             Airgap.violationHandler = { capture.record($0) }
             Airgap.reportPath = nil
@@ -49,7 +46,7 @@ extension AllAirgapSwiftTestingTests {
                 Airgap.clearViolations()
             }
 
-            let url = URL(string: "https://example.com/api/collect-no-path")!
+            let url = try #require(URL(string: "https://example.com/api/collect-no-path"))
             let semaphore = DispatchSemaphore(value: 0)
 
             URLSession.shared.dataTask(with: url) { _, _, _ in

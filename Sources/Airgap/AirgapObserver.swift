@@ -28,7 +28,6 @@ import XCTest
 /// Individual tests that need real network access call `Airgap.allowNetworkAccess()`.
 @objc(AirgapObserver)
 open class AirgapObserver: NSObject, XCTestObservation, @unchecked Sendable {
-
     override public init() {
         super.init()
         XCTestObservationCenter.shared.addTestObserver(self)
@@ -40,7 +39,7 @@ open class AirgapObserver: NSObject, XCTestObservation, @unchecked Sendable {
     /// and activates the guard. Subclasses should call `super` — set custom configuration
     /// (e.g., `Airgap.mode`, `Airgap.reportPath`) either before or after `super` depending
     /// on whether the environment should take precedence.
-    open func testBundleWillStart(_ testBundle: Bundle) {
+    open func testBundleWillStart(_: Bundle) {
         Airgap.inXCTestContext = true
         Airgap.configureFromEnvironment()
         Airgap.activate()
@@ -58,7 +57,7 @@ open class AirgapObserver: NSObject, XCTestObservation, @unchecked Sendable {
     /// Called after all tests in the bundle have finished.
     ///
     /// Prints the violation summary (if any), writes the report file, and deactivates the guard.
-    public func testBundleDidFinish(_ testBundle: Bundle) {
+    public func testBundleDidFinish(_: Bundle) {
         if let summary = Airgap.violationSummary() {
             print(summary)
         }
