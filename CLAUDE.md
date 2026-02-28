@@ -23,17 +23,17 @@ Five interception mechanisms work together:
 4. **URLSessionTask.resume() swizzling** — captures accurate call stacks at the point where user code initiates the request (not deep inside URLProtocol machinery); also intercepts WebSocket tasks directly since URLProtocol cannot intercept WebSocket connections
 5. **WebSocket interception** — `URLSessionWebSocketTask` and `ws://`/`wss://` schemes are detected in the resume swizzle, violations are reported, and the task is cancelled
 
-Intercepted requests receive a configurable error code (default `NSURLErrorNotConnectedToInternet`). Non-HTTP schemes (file://, data://) pass through.
+Intercepted requests receive a configurable error code (default `NSURLErrorNotConnectedToInternet`). Non-HTTP schemes (file://, data://) pass through. In `canInit(with:)`, the check order is: active/allowed → scheme filter → allowed hosts → passthrough protocols → intercept.
 
 ## Key Files
 
 | File | Purpose |
 |---|---|
-| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, violation reporting (text and JSON formats), `isActive`, `violationReporter`, `errorCode`, `responseDelay`, `withConfiguration()` |
+| `Sources/Airgap/Airgap.swift` | Main API: activate/deactivate, mode, allowed hosts, `passthroughProtocols`, violation reporting (text and JSON formats), `isActive`, `violationReporter`, `violationMessage(for:)`, `errorCode`, `responseDelay`, `withConfiguration()` |
 | `Sources/Airgap/AirgapURLProtocol.swift` | URLProtocol subclass that intercepts HTTP/HTTPS requests |
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
 | `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |
-| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation; warn mode uses `withKnownIssue`. Runtime scoping (`TestScoping`) requires Swift 6.1+; on 6.0 the trait is metadata-only. |
+| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation. Sets a no-op violation handler during the test body; violations are collected in `Airgap.violations` and reported via `Issue.record()` (or `withKnownIssue` in warn mode) in the trait's defer block, ensuring correct test attribution. Runtime scoping (`TestScoping`) requires Swift 6.1+; on 6.0 the trait is metadata-only. |
 | `Sources/Airgap/AsyncMutex.swift` | Async-compatible mutex for serializing `.airgapped` test scopes |
 | `Sources/Airgap/Violation.swift` | Sendable/Codable data model for captured violations |
 
@@ -53,6 +53,16 @@ Intercepted requests receive a configurable error code (default `NSURLErrorNotCo
 | `AirgapUnitTests` | Swift Testing | Unit tests for all core functionality |
 | `AirgapXCTestIntegrationTests` | XCTest | Integration tests for XCTest-based activation flows |
 | `AirgapSwiftTestingIntegrationTests` | Swift Testing | Integration tests for the `.airgapped` trait |
+
+### Consumer Integration Tests
+
+Standalone packages in `IntegrationTests/` that depend on Airgap as an external consumer would. They verify that all public API patterns work correctly from outside the main package.
+
+| Package | Framework | Purpose |
+|---|---|---|
+| `IntegrationTests/XCTestConsumer` | XCTest | `AirgapTestCase`, manual base class, manual per-test, environment variables |
+| `IntegrationTests/SwiftTestingConsumer` | Swift Testing | `.airgapped` trait at test and suite level, trait configuration, violation attribution |
+| `IntegrationTests/NSPrincipalClassConsumer` | XCTest | `AirgapObserver` via `NSPrincipalClass` (requires Xcode/xcodebuild) |
 
 ## Why `.airgapped` Tests Are Serialized
 

@@ -126,6 +126,7 @@ extension AirgapTrait: TestScoping {
             if let summary = Airgap.violationSummary() {
                 print(summary)
             }
+            Airgap.writeReport()
             Airgap.deactivate()
             Airgap.violationHandler = previousHandler
             Airgap.violationReporter = previousReporter

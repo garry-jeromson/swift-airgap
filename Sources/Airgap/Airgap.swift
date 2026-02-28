@@ -108,7 +108,11 @@ public enum Airgap {
     }
 
     /// Called when a network violation is detected. Defaults to `XCTFail()`.
-    /// Set to `{ Issue.record($0) }` for Swift Testing, or any custom handler.
+    ///
+    /// When using the `.airgapped` Swift Testing trait, this handler is managed by the trait
+    /// (set to a no-op during the test body; violations are reported via `Issue.record()` in the
+    /// trait's scope teardown for correct test attribution). For custom reporting in Swift Testing,
+    /// use `violationReporter` instead.
     ///
     /// Thread-safe: reads and writes are protected by an internal lock.
     #if compiler(>=6.0)

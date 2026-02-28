@@ -23,6 +23,7 @@ func resetAirgapState(capture: ViolationCapture) {
     Airgap.mode = .fail
     Airgap.reportPath = nil
     Airgap.allowedHosts = []
+    Airgap.passthroughProtocols = []
     Airgap.clearViolations()
 }
 
@@ -37,6 +38,7 @@ func resetAirgapState() {
     Airgap.mode = .fail
     Airgap.reportPath = nil
     Airgap.allowedHosts = []
+    Airgap.passthroughProtocols = []
     Airgap.clearViolations()
 }
 
@@ -107,6 +109,31 @@ final class ViolationCapture: @unchecked Sendable {
     func reset() {
         lock.withLock { _messages = [] }
     }
+}
+
+/// A URLProtocol subclass that claims to handle HTTPS requests to a specific host.
+/// Used in passthrough protocol tests to verify Airgap yields to mock protocols.
+final class MockHTTPProtocol: URLProtocol {
+    /// The host this protocol claims to handle.
+    static let mockedHost = "mocked.example.com"
+
+    override static func canInit(with request: URLRequest) -> Bool {
+        guard let scheme = request.url?.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https") else {
+            return false
+        }
+        return request.url?.host == mockedHost
+    }
+
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        client?.urlProtocol(self, didFailWithError: NSError(domain: "MockHTTP", code: 0))
+    }
+
+    override func stopLoading() {}
 }
 
 /// Thread-safe error capture for use in unit tests.

@@ -391,6 +391,40 @@ final class AirgapBlockingTests {
         )
     }
 
+    // MARK: - Passthrough protocols
+
+    @Test("Passthrough protocol yields to mock for matching requests") func passthroughProtocolYieldsToMock() {
+        Airgap.passthroughProtocols = [MockHTTPProtocol.self]
+        Airgap.activate()
+
+        let mockedURL = URL(string: "https://mocked.example.com/api/resource")!
+        let mockedRequest = URLRequest(url: mockedURL)
+        #expect(!AirgapURLProtocol.canInit(with: mockedRequest),
+                "Airgap should yield to passthrough protocol for matching requests")
+        #expect(MockHTTPProtocol.canInit(with: mockedRequest),
+                "MockHTTPProtocol should handle the request")
+    }
+
+    @Test("Non-matching passthrough protocol still blocks") func nonMatchingPassthroughStillBlocks() {
+        Airgap.passthroughProtocols = [MockHTTPProtocol.self]
+        Airgap.activate()
+
+        let unmockedURL = URL(string: "https://unmocked.example.com/api/resource")!
+        let unmockedRequest = URLRequest(url: unmockedURL)
+        #expect(AirgapURLProtocol.canInit(with: unmockedRequest),
+                "Airgap should still block requests the passthrough protocol doesn't handle")
+    }
+
+    @Test("Empty passthrough list blocks normally") func emptyPassthroughListBlocksNormally() {
+        Airgap.passthroughProtocols = []
+        Airgap.activate()
+
+        let url = URL(string: "https://example.com/api/resource")!
+        let request = URLRequest(url: url)
+        #expect(AirgapURLProtocol.canInit(with: request),
+                "Airgap should block requests when no passthrough protocols are set")
+    }
+
     // MARK: - Concurrent requests
 
     @Test("Concurrent blocked requests") func concurrentBlockedRequests() async {

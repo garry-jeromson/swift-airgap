@@ -18,7 +18,7 @@ Tests should never make real outgoing network calls — they slow down the suite
 Add the package to your `Package.swift` or Xcode project:
 
 ```swift
-.package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.4.0")
+.package(url: "https://github.com/garry-jeromson/swift-airgap.git", from: "1.4.1")
 ```
 
 Then add `"Airgap"` to your test target's dependencies.
@@ -146,7 +146,7 @@ The trait automatically serializes `.airgapped` scopes process-wide, so concurre
 
 > **Note:** The `.airgapped` trait's runtime scoping (automatic activate/deactivate around each test) requires **Swift 6.1+** (Xcode 16.3+). On Swift 6.0, the trait compiles and can be applied as metadata, but `provideScope` is absent — use manual `Airgap.activate()`/`deactivate()` calls instead.
 
-The trait automatically sets the violation handler to `Issue.record()` and activates/deactivates the guard around each test.
+The trait automatically reports violations via `Issue.record()` and activates/deactivates the guard around each test. Violations are collected during the test body and reported in the trait's scope teardown, so they are correctly attributed to the test that triggered them.
 
 To opt out an individual test within a guarded suite, call `Airgap.allowNetworkAccess()` at the start of the test body — see [Allowing Network Access](#allowing-network-access).
 
@@ -227,6 +227,17 @@ Set `AIRGAP_ALLOWED_HOSTS` to a comma-separated list of hosts. Both `AirgapObser
 AIRGAP_ALLOWED_HOSTS=localhost,127.0.0.1,*.mock-server.local
 ```
 
+### Passthrough Protocols
+
+If you use a mock URLProtocol framework (e.g., Mocker, OHHTTPStubs), you can tell Airgap to yield to it for requests the mock handles. Unmocked requests are still blocked:
+
+```swift
+Airgap.passthroughProtocols = [MockingURLProtocol.self]
+Airgap.activate()
+```
+
+When a request arrives, Airgap checks each passthrough protocol's `canInit(with:)`. If any returns `true`, Airgap yields and lets that protocol handle the request. This lets mock and stub frameworks coexist with Airgap — mocked requests go through the mock, unmocked requests are blocked.
+
 ## Warning Mode
 
 By default, Airgap fails tests immediately on any violation (`.fail` mode). Use `.warn` mode to detect violations without failing tests — violations appear as expected failures in Xcode's issue navigator.
@@ -299,7 +310,7 @@ See the [Warning Mode](#warning-mode) section above for a complete example.
 
 ### Environment variable
 
-Set `AIRGAP_REPORT_PATH=/path/to/report.txt` in your Xcode scheme's environment variables. The report is written automatically when the test bundle finishes (observer) or during tearDown (test case).
+Set `AIRGAP_REPORT_PATH=/path/to/report.txt` in your Xcode scheme's environment variables. The report is written automatically when the test bundle finishes (`AirgapObserver`) or during tearDown (`AirgapTestCase`).
 
 ### Report format
 
@@ -351,11 +362,12 @@ print(Airgap.violationSummary() ?? "")  // e.g. "Airgap: 3 violation(s) detected
 
 // Each violation contains:
 let v = Airgap.violations[0]
-v.testName   // "-[MyTests testFetchUser]"
-v.httpMethod // "GET"
-v.url        // "https://api.example.com/user/123"
-v.callStack  // [String] — symbolicated stack frames
-v.timestamp  // Date — when the violation was detected
+v.testName    // "-[MyTests testFetchUser]"
+v.httpMethod  // "GET"
+v.url         // "https://api.example.com/user/123"
+v.callStack   // [String] — symbolicated stack frames
+v.timestamp   // Date — when the violation was detected
+v.contentType // String? — Content-Type header, if present
 
 // Reset:
 Airgap.clearViolations()
@@ -381,7 +393,7 @@ All four are read by `Airgap.configureFromEnvironment()`, which is called automa
 
 ## Custom Failure Handling
 
-The default handler calls `XCTFail()`. The `.airgapped` trait automatically sets the handler to `Issue.record()`. You can also set it manually:
+The default handler calls `XCTFail()`. You can set a custom handler for manual activation flows:
 
 ```swift
 // Swift Testing (manual)
@@ -407,7 +419,7 @@ Airgap.violationReporter = { violation in
 }
 ```
 
-Both callbacks fire on every violation. Set to `nil` to disable (default).
+`violationReporter` fires on every violation immediately (even within `.airgapped` trait scopes). Set to `nil` to disable (default). Note that when using the `.airgapped` trait, `violationHandler` is managed by the trait — set `violationReporter` for custom structured reporting instead.
 
 ## Scoped Configuration
 
@@ -494,6 +506,7 @@ The `.airgapped` Swift Testing trait does not set `inXCTestContext` — it uses 
 |--------|--------|
 | `file://` URLs | Non-HTTP scheme, intentionally allowed |
 | `data:` URLs | Non-HTTP scheme, intentionally allowed |
+| Requests handled by a `passthroughProtocols` entry | Airgap yields if another URLProtocol's `canInit(with:)` returns `true` |
 | `Data(contentsOf: remoteURL)` | Uses a lower-level loading path that bypasses URLProtocol |
 | Sessions created before `activate()` with a custom configuration | The session already exists; swizzling can only inject at creation time |
 
