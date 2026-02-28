@@ -145,7 +145,7 @@ struct MyTests {
 
 The trait automatically serializes `.airgapped` scopes process-wide, so concurrent suites don't corrupt each other's configuration. Adding `.serialized` is optional but avoids lock contention overhead if your suites would otherwise run in parallel.
 
-> **Note:** The `.airgapped` trait's runtime scoping (automatic activate/deactivate around each test) requires **Swift 6.1+** (Xcode 16.3+). On Swift 6.0, the trait compiles and can be applied as metadata, but `provideScope` is absent — use manual `Airgap.activate()`/`deactivate()` calls instead.
+> **Note:** The `.airgapped` trait's runtime scoping (automatic activate/deactivate around each test) requires **Swift 6.1+** (Xcode 16.3+). On Swift 6.0, the trait compiles and can be applied as metadata, but `provideScope` is absent — use `Airgap.scoped()` instead (see below).
 
 The trait automatically reports violations via `Issue.record()` and activates/deactivates the guard around each test. Violations are collected during the test body and reported in the trait's scope teardown, so they are correctly attributed to the test that triggered them.
 
@@ -159,6 +159,33 @@ Apply the trait to an individual test:
 @Test(.airgapped)
 func fetchData() async throws { ... }
 ```
+
+### Manual scoping — `Airgap.scoped()` (Swift 6.0)
+
+On Swift 6.0, where `TestScoping` is not available, use `Airgap.scoped()` as a drop-in alternative to the `.airgapped` trait. It provides the same automatic scope serialization, state save/restore, and violation reporting via `Issue.record()`:
+
+```swift
+import Airgap
+import Testing
+
+@Test func fetchData() async throws {
+    try await Airgap.scoped {
+        // Any HTTP/HTTPS request here will record an Issue
+    }
+}
+```
+
+Configure mode and allowed hosts:
+
+```swift
+@Test func fetchData() async throws {
+    try await Airgap.scoped(mode: .warn, allowedHosts: ["localhost"]) {
+        // Violations are reported as known issues; localhost is allowed
+    }
+}
+```
+
+On Swift 6.1+, prefer the `.airgapped` trait instead.
 
 ## Allowing Network Access
 
@@ -591,13 +618,13 @@ struct KtorTests {
 
 ## Swift Version Compatibility
 
-| Swift Version | Build | XCTest (`AirgapObserver`, `AirgapTestCase`) | Swift Testing (`.airgapped` trait) |
+| Swift Version | Build | XCTest (`AirgapObserver`, `AirgapTestCase`) | Swift Testing |
 |---|---|---|---|
 | 5.10 | Yes | Yes | No (Swift Testing not available) |
-| 6.0 | Yes | Yes | Metadata-only (trait compiles but `provideScope` is absent — use manual `activate()`/`deactivate()`) |
-| 6.1+ | Yes | Yes | Full support (automatic activate/deactivate via `TestScoping`) |
+| 6.0 | Yes | Yes | `Airgap.scoped()` (manual scoping — trait compiles but `provideScope` is absent) |
+| 6.1+ | Yes | Yes | Full support (`.airgapped` trait with automatic activate/deactivate via `TestScoping`) |
 
-For Swift 5.10 and 6.0, use `AirgapObserver` (bundle-level) or `AirgapTestCase` (per-class) for automatic activation.
+For Swift 5.10, use `AirgapObserver` (bundle-level) or `AirgapTestCase` (per-class) for automatic activation. For Swift 6.0, use `Airgap.scoped()` for Swift Testing tests.
 
 ## Troubleshooting
 
@@ -614,7 +641,7 @@ Sessions created after `activate()` are automatically covered, even with custom 
 SPM test targets don't have an Info.plist, so `NSPrincipalClass` is not available. Use the `.airgapped` trait (Swift Testing) or manual `activate()`/`deactivate()` calls instead.
 
 **`.airgapped` trait compiles but doesn't activate/deactivate**
-The trait's `provideScope` (which performs the actual activate/deactivate lifecycle) requires Swift 6.1+ (Xcode 16.3+). On Swift 6.0, the trait is metadata-only. Check your Swift version with `swift --version` and use `AirgapObserver` or `AirgapTestCase` on older versions.
+The trait's `provideScope` (which performs the actual activate/deactivate lifecycle) requires Swift 6.1+ (Xcode 16.3+). On Swift 6.0, the trait is metadata-only. Check your Swift version with `swift --version` and use `Airgap.scoped()` for Swift Testing tests, or `AirgapObserver`/`AirgapTestCase` for XCTest.
 
 **KMP/Ktor requests not caught**
 Ensure `Airgap.activate()` is called before Ktor creates its `NSURLSession`. If Ktor eagerly initializes during module load, the session may be created before the swizzle is in place. Use `AirgapObserver` via `NSPrincipalClass` for the earliest possible activation.

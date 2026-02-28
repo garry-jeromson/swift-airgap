@@ -56,6 +56,101 @@ import Foundation
         }
     }
 
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    public extension Airgap {
+        /// Activates Airgap for the duration of `body`, with automatic scope serialization,
+        /// state save/restore, and violation reporting via `Issue.record()`.
+        ///
+        /// This is a standalone alternative to the `.airgapped` trait for Swift 6.0, where
+        /// `TestScoping` is not available. On Swift 6.1+, prefer the `.airgapped` trait instead.
+        ///
+        /// ```swift
+        /// @Test func myTest() async throws {
+        ///     try await Airgap.scoped {
+        ///         // Any HTTP/HTTPS request here will record an Issue
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// - Parameters:
+        ///   - mode: Optional mode override (`.fail` or `.warn`). Defaults to the current mode.
+        ///   - allowedHosts: Additional hosts to allow through the guard for this scope.
+        ///   - body: The test body to run with Airgap active.
+        static func scoped(
+            mode: Mode? = nil,
+            allowedHosts: Set<String> = [],
+            _ body: () async throws -> Void) async rethrows {
+            // If an outer scope (e.g. ScopeLockTrait) already holds the lock,
+            // skip acquisition to avoid deadlock.
+            let alreadyHeld = scopeLockHeld
+            if !alreadyHeld {
+                await scopeLock.lock()
+            }
+            defer {
+                if !alreadyHeld {
+                    scopeLock.unlock()
+                }
+            }
+
+            // Save all mutable state
+            let previousHandler = violationHandler
+            let previousReporter = violationReporter
+            let previousAllowedHosts = self.allowedHosts
+            let previousMode = self.mode
+            let previousErrorCode = errorCode
+            let previousResponseDelay = responseDelay
+            let previousTestName = AirgapURLProtocol.currentTestName
+
+            configureFromEnvironment()
+            let effectiveMode = mode ?? self.mode
+            // No-op handler: violations are still collected in Airgap.violations
+            // by reportViolation(). We report them in the defer block below,
+            // where we're in the test's task context for correct attribution.
+            violationHandler = { _ in }
+            if !allowedHosts.isEmpty {
+                self.allowedHosts = self.allowedHosts.union(allowedHosts)
+            }
+            if let mode {
+                self.mode = mode
+            }
+            clearViolations()
+            activate()
+
+            defer {
+                // Report violations from within the test's task context so
+                // Swift Testing can attribute Issues to the correct test.
+                let collectedViolations = violations
+                for violation in collectedViolations {
+                    let message = violationMessage(for: violation)
+                    if effectiveMode == .warn {
+                        withKnownIssue("Airgap violation (warning mode)") {
+                            Issue.record("\(message)")
+                        }
+                    } else {
+                        Issue.record("\(message)")
+                    }
+                }
+
+                if let summary = violationSummary() {
+                    print(summary)
+                }
+                writeReport()
+                deactivate()
+                violationHandler = previousHandler
+                violationReporter = previousReporter
+                self.allowedHosts = previousAllowedHosts
+                self.mode = previousMode
+                errorCode = previousErrorCode
+                responseDelay = previousResponseDelay
+                AirgapURLProtocol.currentTestName = previousTestName
+            }
+
+            try await $scopeLockHeld.withValue(true) {
+                try await body()
+            }
+        }
+    }
+
     #if swift(>=6.1)
         @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
         extension AirgapTrait: TestScoping {

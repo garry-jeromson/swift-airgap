@@ -33,7 +33,7 @@ Intercepted requests receive a configurable error code (default `NSURLErrorNotCo
 | `Sources/Airgap/AirgapURLProtocol.swift` | URLProtocol subclass that intercepts HTTP/HTTPS requests |
 | `Sources/Airgap/AirgapObserver.swift` | XCTestObservation-based lifecycle hook (bundle-level activation) |
 | `Sources/Airgap/AirgapTestCase.swift` | XCTestCase subclass for per-test activation; `configure()` hook for subclass customization |
-| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation. Sets a no-op violation handler during the test body; violations are collected in `Airgap.violations` and reported via `Issue.record()` (or `withKnownIssue` in warn mode) in the trait's defer block, ensuring correct test attribution. Runtime scoping (`TestScoping`) requires Swift 6.1+; on 6.0 the trait is metadata-only. |
+| `Sources/Airgap/AirgapTrait.swift` | Swift Testing trait for `.airgapped` annotation and `Airgap.scoped()` manual scoping API. Sets a no-op violation handler during the test body; violations are collected in `Airgap.violations` and reported via `Issue.record()` (or `withKnownIssue` in warn mode) in the trait's/scope's defer block, ensuring correct test attribution. Runtime scoping via `TestScoping` requires Swift 6.1+; on 6.0 use `Airgap.scoped()` instead. |
 | `Sources/Airgap/AsyncMutex.swift` | Async-compatible mutex for serializing `.airgapped` test scopes |
 | `Sources/Airgap/Violation.swift` | Sendable/Codable data model for captured violations |
 
