@@ -31,11 +31,12 @@ jobs:
             run-tests: true
             swift6-consumer: false
             swift-testing-consumer: false
-          - name: "Swift 6.0 (Build Only)"
+          - name: "Swift 6.0 (Build & Test)"
             xcode: "16.2"
             runner: macos-15
-            run-tests: false
+            run-tests: true
             swift6-consumer: true
+            swift-testing-consumer: false
           - name: "Swift 6.1 (Build & Test)"
             xcode: "16.4"
             runner: macos-15
