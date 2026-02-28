@@ -428,11 +428,12 @@ public enum Airgap {
     /// The output format is determined by the file extension:
     /// - `.json` — writes a JSON array of violation objects using `JSONEncoder`
     /// - Any other extension — writes a human-readable plain text report
-    public static func writeReport() {
-        guard let path = reportPath else { return }
+    @discardableResult
+    public static func writeReport() -> Bool {
+        guard let path = reportPath else { return true }
 
         let currentViolations = lock.withLock { _violations }
-        guard !currentViolations.isEmpty else { return }
+        guard !currentViolations.isEmpty else { return true }
 
         let directory = (path as NSString).deletingLastPathComponent
         do {
@@ -448,8 +449,10 @@ public enum Airgap {
                 let report = buildTextReport(currentViolations)
                 try report.write(toFile: path, atomically: true, encoding: .utf8)
             }
+            return true
         } catch {
             fputs("Airgap: Failed to write report to \(path): \(error)\n", stderr)
+            return false
         }
     }
 
