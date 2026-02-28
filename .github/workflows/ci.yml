@@ -104,11 +104,11 @@ jobs:
           retention-days: 14
 
       - name: Test XCTest consumer integration
-        if: ${{ matrix.run-tests }}
+        if: ${{ matrix.run-tests && matrix.swift6-consumer }}
         run: make test-xctest-consumer
 
       - name: Test NSPrincipalClass consumer integration
-        if: ${{ matrix.run-tests }}
+        if: ${{ matrix.run-tests && matrix.swift6-consumer }}
         run: make test-nsprincipalclass-consumer
 
       - name: Test Swift Testing consumer integration
