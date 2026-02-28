@@ -549,6 +549,31 @@ A future approach could inject a scope identifier into each request (via a URLPr
 5. **Scheme filtering** — Only `http://`, `https://`, `ws://`, and `wss://` schemes are intercepted; `file://`, `data:`, and others pass through
 6. **Error delivery** — Intercepted requests receive a configurable error code (default `NSURLErrorNotConnectedToInternet`) with optional delay, so code under test gets an error rather than hanging
 
+## Kotlin Multiplatform (KMP) / Ktor
+
+Airgap automatically intercepts network requests from Ktor's Darwin engine on Apple platforms. Ktor uses `NSURLSession` with standard `URLSessionConfiguration` under the hood, so Airgap's swizzling catches these requests without any additional configuration.
+
+```swift
+// Ktor requests are intercepted automatically — no special setup needed
+@Suite(.airgapped)
+struct KtorTests {
+    @Test func fetchFromKtorClient() async throws {
+        // Any HTTP request from Ktor's Darwin engine will be blocked
+    }
+}
+```
+
+### What's covered
+
+- Sessions created by Ktor from `.default` or `.ephemeral` configurations (caught by configuration swizzle)
+- Sessions created after `activate()` from any configuration type (caught by session-init swizzle)
+- `URLSession.shared` usage (caught by `URLProtocol.registerClass`)
+
+### Known gaps
+
+- **Sessions created before `activate()`** with a custom configuration — if Ktor (or any KMP code) eagerly creates a session during module load before Airgap activates, that session won't have the guard protocol. Move `Airgap.activate()` as early as possible, or use `AirgapObserver` which activates in `testBundleWillStart`.
+- **Non-URLSession HTTP clients** — custom KMP expect/actual implementations that use lower-level APIs (e.g., `CFNetwork` directly) won't be intercepted.
+
 ## Troubleshooting
 
 **Tests fail with "Airgap: Blocked request..."**
