@@ -5,10 +5,6 @@ import PackageDescription
 
 let enableSwiftLint = ProcessInfo.processInfo.environment["ENABLE_SWIFTLINT"] != nil
 
-let swiftLintPlugins: [Target.PluginUsage] = enableSwiftLint
-    ? [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
-    : []
-
 let swiftLintDependencies: [Package.Dependency] = enableSwiftLint
     ? [
         .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2"),
@@ -25,18 +21,14 @@ let package = Package(
     dependencies: swiftLintDependencies,
     targets: [
         .target(
-            name: "Airgap",
-            plugins: swiftLintPlugins),
+            name: "Airgap"),
         .testTarget(
             name: "AirgapXCTestIntegrationTests",
-            dependencies: ["Airgap"],
-            plugins: swiftLintPlugins),
+            dependencies: ["Airgap"]),
         .testTarget(
             name: "AirgapUnitTests",
-            dependencies: ["Airgap"],
-            plugins: swiftLintPlugins),
+            dependencies: ["Airgap"]),
         .testTarget(
             name: "AirgapSwiftTestingIntegrationTests",
-            dependencies: ["Airgap"],
-            plugins: swiftLintPlugins),
+            dependencies: ["Airgap"]),
     ])
