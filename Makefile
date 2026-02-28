@@ -1,4 +1,7 @@
-.PHONY: build test clean lint format
+.PHONY: build test clean lint format \
+	build-swift6-consumer build-xctest-consumer \
+	test-xctest-consumer test-nsprincipalclass-consumer test-swift-testing-consumer \
+	test-integration test-all
 
 build:
 	swift build
@@ -14,3 +17,29 @@ lint:
 
 format:
 	ENABLE_SWIFTLINT=1 swift package plugin --allow-writing-to-package-directory swiftformat .
+
+# Integration test builds (compile-only)
+build-swift6-consumer:
+	swift build --package-path IntegrationTests/Swift6Consumer
+
+build-xctest-consumer:
+	swift build --build-tests --package-path IntegrationTests/XCTestConsumer
+
+# Integration test runs
+test-xctest-consumer:
+	swift test --package-path IntegrationTests/XCTestConsumer
+
+test-nsprincipalclass-consumer:
+	cd IntegrationTests/NSPrincipalClassConsumer && \
+		xcodebuild test \
+			-scheme NSPrincipalClassConsumer-Package \
+			-destination 'platform=macOS' \
+			INFOPLIST_KEY_NSPrincipalClass=AirgapObserver
+
+test-swift-testing-consumer:
+	swift test --package-path IntegrationTests/SwiftTestingConsumer
+
+# Aggregate targets
+test-integration: test-xctest-consumer test-nsprincipalclass-consumer test-swift-testing-consumer
+
+test-all: test test-integration

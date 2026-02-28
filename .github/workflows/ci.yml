@@ -28,11 +28,13 @@ jobs:
             runner: macos-15
             run-tests: true
             swift6-consumer: true
+            swift-testing-consumer: true
           - name: "Swift 6.2 (Build & Test)"
             xcode: "26.2"
             runner: macos-26
             run-tests: true
             swift6-consumer: true
+            swift-testing-consumer: true
     steps:
       - uses: actions/checkout@v4
 
@@ -42,10 +44,26 @@ jobs:
       - name: Build
         run: swift build --build-tests
 
-      - name: Build consumer integration test
+      - name: Build Swift6Consumer integration test
         if: ${{ matrix.swift6-consumer }}
-        run: swift build --package-path IntegrationTests/Swift6Consumer
+        run: make build-swift6-consumer
+
+      - name: Build XCTest consumer integration test
+        if: ${{ matrix.swift6-consumer }}
+        run: make build-xctest-consumer
 
       - name: Run tests
         if: ${{ matrix.run-tests }}
-        run: swift test
+        run: make test
+
+      - name: Test XCTest consumer integration
+        if: ${{ matrix.run-tests }}
+        run: make test-xctest-consumer
+
+      - name: Test NSPrincipalClass consumer integration
+        if: ${{ matrix.run-tests }}
+        run: make test-nsprincipalclass-consumer
+
+      - name: Test Swift Testing consumer integration
+        if: ${{ matrix.swift-testing-consumer }}
+        run: make test-swift-testing-consumer
