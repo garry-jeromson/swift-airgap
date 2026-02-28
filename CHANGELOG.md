@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-02-28
+
 ### Added
 - `Airgap.withNetworkAccessAllowed()` scoped helper (sync and async overloads) for temporarily allowing network access within a block
 - `writeReport()` now returns `Bool` indicating success/failure (`@discardableResult`)
@@ -122,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reportPath` and `writeReport()` for violation reports.
 - `configureFromEnvironment()` for environment variable configuration.
 
-[Unreleased]: https://github.com/garry-jeromson/swift-airgap/compare/1.5.0...HEAD
+[Unreleased]: https://github.com/garry-jeromson/swift-airgap/compare/1.6.0...HEAD
+[1.6.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/garry-jeromson/swift-airgap/compare/1.3.1...1.4.0
 [1.3.1]: https://github.com/garry-jeromson/swift-airgap/compare/1.3.0...1.3.1
