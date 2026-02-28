@@ -597,3 +597,16 @@ Sessions created after `activate()` are automatically covered, even with custom 
 
 **`NSPrincipalClass` doesn't work in SPM test targets**
 SPM test targets don't have an Info.plist, so `NSPrincipalClass` is not available. Use the `.airgapped` trait (Swift Testing) or manual `activate()`/`deactivate()` calls instead.
+
+**`.airgapped` trait compiles but doesn't activate/deactivate**
+The trait's `provideScope` (which performs the actual activate/deactivate lifecycle) requires Swift 6.1+ (Xcode 16.3+). On Swift 6.0, the trait is metadata-only. Check your Swift version with `swift --version` and use `AirgapObserver` or `AirgapTestCase` on older versions.
+
+**KMP/Ktor requests not caught**
+Ensure `Airgap.activate()` is called before Ktor creates its `NSURLSession`. If Ktor eagerly initializes during module load, the session may be created before the swizzle is in place. Use `AirgapObserver` via `NSPrincipalClass` for the earliest possible activation.
+
+**Mock library requests are being blocked**
+If you use a mock URLProtocol framework (e.g., Mocker, OHHTTPStubs), register it as a passthrough protocol so Airgap yields for mocked requests:
+```swift
+Airgap.passthroughProtocols = [MockingURLProtocol.self]
+```
+Unmocked requests are still blocked. See [Passthrough Protocols](#passthrough-protocols) for details.
