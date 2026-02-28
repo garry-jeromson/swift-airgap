@@ -208,6 +208,66 @@ extension AllAirgapUnitTests {
                     "configureFromEnvironment should assign hosts, not union them")
         }
 
+        // MARK: - withNetworkAccessAllowed
+
+        @Test("withNetworkAccessAllowed allows requests inside block") func withNetworkAccessAllowedAllowsRequests() {
+            Airgap.activate()
+            #expect(AirgapURLProtocol.isAllowed == false)
+
+            Airgap.withNetworkAccessAllowed {
+                #expect(AirgapURLProtocol.isAllowed == true)
+            }
+        }
+
+        @Test("withNetworkAccessAllowed restores state after block") func withNetworkAccessAllowedRestoresState() {
+            Airgap.activate()
+            #expect(AirgapURLProtocol.isAllowed == false)
+
+            Airgap.withNetworkAccessAllowed {
+                // allowed inside
+            }
+
+            #expect(AirgapURLProtocol.isAllowed == false, "isAllowed should be restored after block")
+        }
+
+        @Test("withNetworkAccessAllowed restores state on throw") func withNetworkAccessAllowedRestoresOnThrow() {
+            Airgap.activate()
+
+            do {
+                try Airgap.withNetworkAccessAllowed {
+                    #expect(AirgapURLProtocol.isAllowed == true)
+                    throw NSError(domain: "test", code: 1)
+                }
+            } catch {
+                // expected
+            }
+
+            #expect(AirgapURLProtocol.isAllowed == false, "isAllowed should be restored after throw")
+        }
+
+        @Test("withNetworkAccessAllowed preserves already-allowed state") func withNetworkAccessAllowedPreservesAllowedState() {
+            Airgap.activate()
+            Airgap.allowNetworkAccess()
+            #expect(AirgapURLProtocol.isAllowed == true)
+
+            Airgap.withNetworkAccessAllowed {
+                #expect(AirgapURLProtocol.isAllowed == true)
+            }
+
+            #expect(AirgapURLProtocol.isAllowed == true, "Should restore to the saved allowed state")
+        }
+
+        @Test("withNetworkAccessAllowed async overload works") func withNetworkAccessAllowedAsyncOverloadWorks() async {
+            Airgap.activate()
+            #expect(AirgapURLProtocol.isAllowed == false)
+
+            await Airgap.withNetworkAccessAllowed {
+                #expect(AirgapURLProtocol.isAllowed == true)
+            }
+
+            #expect(AirgapURLProtocol.isAllowed == false, "isAllowed should be restored after async block")
+        }
+
         // MARK: - Mode is not reset by activate
 
         @Test("Activate does not reset mode") func activateDoesNotResetMode() {
