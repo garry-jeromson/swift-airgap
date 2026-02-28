@@ -7,6 +7,21 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint & SwiftFormat
+        run: brew install swiftlint swiftformat
+
+      - name: SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
+
+      - name: SwiftFormat
+        run: swiftformat --lint .
+
   build-and-test:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
@@ -29,6 +44,7 @@ jobs:
             run-tests: true
             swift6-consumer: true
             swift-testing-consumer: true
+            coverage: true
           - name: "Swift 6.2 (Build & Test)"
             xcode: "26.2"
             runner: macos-26
@@ -53,8 +69,40 @@ jobs:
         run: make build-xctest-consumer
 
       - name: Run tests
-        if: ${{ matrix.run-tests }}
+        if: ${{ matrix.run-tests && !matrix.coverage }}
         run: make test
+
+      - name: Run tests with coverage
+        if: ${{ matrix.coverage }}
+        run: swift test --enable-code-coverage
+
+      - name: Coverage report
+        if: ${{ matrix.coverage }}
+        run: |
+          BIN=$(swift build --show-bin-path)
+          xcrun llvm-cov report \
+            "$BIN/AirgapPackageTests.xctest/Contents/MacOS/AirgapPackageTests" \
+            -instr-profile "$(find .build -name default.profdata -type f)" \
+            -ignore-filename-regex='\.build|Tests'
+
+      - name: Export lcov coverage
+        if: ${{ matrix.coverage }}
+        run: |
+          BIN=$(swift build --show-bin-path)
+          xcrun llvm-cov export \
+            "$BIN/AirgapPackageTests.xctest/Contents/MacOS/AirgapPackageTests" \
+            -instr-profile "$(find .build -name default.profdata -type f)" \
+            -format lcov \
+            -ignore-filename-regex='\.build|Tests' \
+            > coverage.lcov
+
+      - name: Upload coverage artifact
+        if: ${{ matrix.coverage }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage.lcov
+          retention-days: 14
 
       - name: Test XCTest consumer integration
         if: ${{ matrix.run-tests }}

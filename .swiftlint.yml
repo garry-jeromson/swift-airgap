@@ -1,6 +1,7 @@
 included:
   - Sources
   - Tests
+  - IntegrationTests
 
 excluded:
   - .build

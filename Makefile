@@ -1,4 +1,4 @@
-.PHONY: build test clean lint format \
+.PHONY: build test clean lint format lint-check test-coverage \
 	build-swift6-consumer build-xctest-consumer \
 	test-xctest-consumer test-nsprincipalclass-consumer test-swift-testing-consumer \
 	test-integration test-all
@@ -17,6 +17,13 @@ lint:
 
 format:
 	ENABLE_SWIFTLINT=1 swift package plugin --allow-writing-to-package-directory swiftformat .
+
+lint-check:
+	swiftlint lint --strict
+	swiftformat --lint .
+
+test-coverage:
+	swift test --enable-code-coverage
 
 # Integration test builds (compile-only)
 build-swift6-consumer:
