@@ -8,6 +8,7 @@ Detect and fail any test that attempts a real HTTP/HTTPS network request. Drop-i
 
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fgarry-jeromson%2Fswift-airgap%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/garry-jeromson/swift-airgap)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fgarry-jeromson%2Fswift-airgap%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/garry-jeromson/swift-airgap)
+![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 
 ## Overview
 
